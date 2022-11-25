@@ -1,0 +1,13 @@
+* 브런치는 main 에서
+
+git add .
+git commit -m "설명"
+git push origin main
+
+git branch 
+git branch (branch name)
+git branch -d (branch 이름)
+git branch -m (변경할 branch이름) (변경될 branch이름)
+
+// commit 목록 확인
+$ git log

@@ -1,0 +1,6 @@
+STL 벡터
+https://codechacha.com/ko/cpp-stl-vector/
+https://wiserloner.tistory.com/435
+
+ 사각형과 원의 충돌
+http://dolphin.ivyro.net/file/mathematics/tutorial07.html
