@@ -1,74 +1,80 @@
 #include <iostream>
 #include <vector>
-#define TRUE 1
-#define FALSE 0
 
-// vector - FILO
 using namespace std;
+
+
 struct Player
 {
-    string name = "";
-    int y = 0;
-    int width = 0;
-    int height = 0;
-    int plus_speed = 0;
+	int x = 0;
+	int y = 0;
+	int width = 0;
+	int height = 0;
+	int plus_speed = 0;
 
-    // 출력연산자오버로드. 꼭이렇게할필요는없는데
-    // 이방법이좀편리함
-    friend ostream& operator <<(ostream& os, const Player& player);
+	// 출력 연산자오버로드
+	friend ostream& operator <<(ostream& os, const Player& player);
 };
-void ShowAll(const vector<Player>& v);
 
 Player s_player;
-vector<Player> v_player;
+vector <Player> v_player;
 
-//player.x = 20;
-
-int main()
+// vector 출력 연산자 오버로드 선언
+ostream& operator <<(ostream& os, const Player& s_player)
 {
-        s_player.name = "ㄴㄴ";
-        s_player.y = 111;
-        s_player.width = 200;
-        s_player.height = 222;
-        s_player.plus_speed = 100;
+	os << "s_player.x: " << s_player.x << " s_player.y : " << s_player.y << " s_player.width : "
+		<< s_player.width << " s_player.height: " << s_player.height << " s_player.plus_speed: " << s_player.plus_speed;
 
-        v_player.push_back(s_player);
+	return os;
+}
 
-    printf("v_player.size : ");
-    cout << v_player.size();
+void ShowAll(const vector<Player>& v_player)
+{
+	// 출력연산자가오버로드되어있기때문에벡터의내용을
+	// 쉽게출력가능함
 
-    printf("\n");
-    
-    ShowAll(v_player);
-    printf("v_player.clear();\n");
-    v_player.clear();
-    ShowAll(v_player);
+	copy(v_player.begin(), v_player.end(), ostream_iterator<Player>(cout, "\n"));
+}
 
-    // false = 0 / true = 1ㅍ 
-    /*printf("\nv_player.empty : ");
-    if (v_player.empty() != TRUE)
-    {
-        cout << "FALSE \n";
-    }
+int main(void)
+{
+	vector <Player> ::iterator iter;
 
-    ShowAll(v_player);*/
+		// 1
+		s_player.x = 111;
+		s_player.y = 111;
+		s_player.height = 111;
+		s_player.plus_speed = 111;
+
+	v_player.push_back(s_player);
+	//v_player.insert(2, 3);
+
+	// vector 반복자 iter는 v의 시작점을 가리킴
+	iter = v_player.begin();
+
+	// iter - 포인터이다 - [] , *
+	// 0 10 20 30 40 50 60 
+	cout << " * iter : " << *iter << endl;
+
+
+	iter = v_player.begin() + 1;
+	v_player.clear(); // vector의 모든 것 삭제
+
+	// iter - 포인터이다 - [] , *
+	// 0 10 20 30 40 50 60 
+	cout << " * iter : " << *iter << endl;
+	// 임의 접근
+	//cout << "iter[1] : " << iter[1] << endl;
+
+	// 0 10 20 30 40 50 60 
+	//iter += 2; // += 연산 사용
+	//cout << "* iter + 2 : " << *iter << endl;
+
+	// 반복
+	/*for (iter = v.begin(); iter != v.end(); iter++) {
+		cout << *iter << endl;
+	}*/
+
+
 	return 0;
-}
-
-void ShowAll(const vector<Player>& v)
-{
-    // 출력연산자가오버로드되어있기때문에벡터의내용을
-    // 쉽게출력가능함
-
-    copy(v.begin(), v.end(), ostream_iterator<Player>(cout, "\n"));
-}
-
-ostream& operator <<(ostream& os, const Player& score)
-{
-
-    os << "x: " << s_player.name << " y : " << s_player.y << " width : "
-        << s_player.width << " height: " << s_player.height << " plus_speed: " << s_player.plus_speed;
-
-    return os;
-
 }

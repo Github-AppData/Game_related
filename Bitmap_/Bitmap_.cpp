@@ -23,6 +23,7 @@ RECT client_area; // 해상도를 토대로 클라이언트 영역을 저장할 
 BOOL g_press = false;
 BOOL g_portal_crash = false;
 BOOL g_Key_D = false;
+BOOL is_item_die = false;
 int g_jump_limit = 0;
 
 // Thread
@@ -84,6 +85,11 @@ struct Speed_item
 // Player - struct, vector 선언
 Player s_player;
 vector<Player> v_player;
+
+
+// Vector iterator 선언
+vector<Player>::iterator iter = v_player.begin();
+int a, b;
 
 // struct 선언
 Ground ground;
@@ -161,9 +167,14 @@ void is_crash()
     if (speed_item.x + 7 < s_player.x + s_player.width / 2)
     {
         //MessageBox(hWnd, L"speed up !", L"Up", MB_OK);
+        s_player.plus_speed += 2;
 
         v_player.clear();
-        s_player.plus_speed += 2;
+        if (v_player.empty() == true)
+        {
+            is_item_die = true;
+        }
+        InvalidateRect(hWnd, NULL, false);
     }
 
     // 특정 조건을 충족하면 장소 이동하도록
@@ -185,6 +196,12 @@ void Player_Area_Limit()
     if (ground.x > s_player.x - s_player.width / 2) // 이렇게 해주면 정확하게 사각형의 왼쪽 면의 좌표로 계산
     {
         s_player.x = 16;
+    }
+
+    // bottom
+    if (floors.y < s_player.y + s_player.height / 2)
+    {
+        s_player.y = 336;
     }
     
     // Right
@@ -524,8 +541,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 // Player Bitmap
                 TransparentBlt(hdc, s_player.x - s_player.width / 2 - 22, s_player.y - s_player.height / 2 - 32, player_width + 30, player_height + 25, bitmap_dc6, 0, 0, player_width, player_height, RGB(255, 0, 255));
 
-                // Speed_item Bitmap
-                TransparentBlt(hdc, speed_item.x, speed_item.y, Speed_item_width + 30, Speed_item_height + 30, bitmap_dc7, 0, 0, Speed_item_width, Speed_item_height, RGB(255, 255, 255));
+                if (is_item_die == false)
+                {
+                    // Speed_item Bitmap
+                    TransparentBlt(hdc, speed_item.x, speed_item.y, Speed_item_width + 30, Speed_item_height + 30, bitmap_dc7, 0, 0, Speed_item_width, Speed_item_height, RGB(255, 255, 255));
+                    InvalidateRect(hWnd, NULL, false);
+                }
 
                 // Floors, Portal Rectangle - Bitmap 으로 전환 예정
                 Rectangle(hdc, floors.x, floors.y, floors.width, floors.y + floors.height);
