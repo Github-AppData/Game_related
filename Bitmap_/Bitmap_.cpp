@@ -25,6 +25,10 @@ BOOL g_portal_crash = false;
 BOOL g_Key_D = false;
 BOOL is_item_die = false;
 int g_jump_limit = 0;
+int speed_plus = 0;
+
+int counts = 0;
+BOOL is = false;
 
 // Thread
 HANDLE thread;
@@ -32,7 +36,7 @@ DWORD tid;
 
 // 비트맵
 HBITMAP bitmap, bitmap1, bitmap2, bitmap3, bitmap4, bitmap5, bitmap6, bitmap7, bitmap8, bitmap9, bitmap10; // 로드한 비트맵을 저장하는 변수
-BITMAP bitmap_info, bitmap_info2, Speed_item_info; // 로드한 비트맵의 정보를 저장하는 변수
+BITMAP bitmap_info, bitmap_info2, Speed_item_info, skeleton_info, attack_info; // 로드한 비트맵의 정보를 저장하는 변수
 HDC bitmap_dc, bitmap_dc1, bitmap_dc2, bitmap_dc3, bitmap_dc4, bitmap_dc5, bitmap_dc6, bitmap_dc7, bitmap_dc8, bitmap_dc9, bitmap_dc10; // 비트맵을 메모리 DC에 저장하는 변수
 
 /* ------- Struct ------- */
@@ -42,10 +46,54 @@ struct Player
     int y = 0;
     int width = 0;
     int height = 0;
+    int hp = 100;
     int plus_speed = 0;
-    
-    // 출력 연산자오버로드
-    friend ostream& operator <<(ostream& os, const Player& player);
+};
+
+
+struct S_Player_Attack
+{
+    int x = s_player.x - s_player.width / 2 + 30;
+    int y = s_player.y + s_player.height / 2 - 30;
+    int max_range = 0;
+    int damage = 0;
+    int speed = 0;
+};
+
+// 1. 공격 비트맵 (작은 원) / 2. 공격이 나갈 수 있는 Thread / 3. Thread - Sleep (연사 방지)
+// LBD → Attack Thread 작동 - 사정거리 있다. (MAX 사정거리 도달 시 - 공격 비트맵 삭제)
+// Attack Struct의 인수들 - range (사정거리), damage, attack_speed 
+
+// Player 공격 
+//DWORD WINAPI D_Player_Attack(LPVOID param)
+//{
+//    // 쓰레드가 발동되면 무한루프
+//    while (true)
+//    {
+//        // Thread 잠시멈춤
+//        Sleep(100);
+//
+//        // 조건을 검사한 뒤에
+//        if ()
+//        {
+//           
+//        }
+//
+//        // 화면 무효화
+//        InvalidateRect(hWnd, NULL, false);
+//    }
+//    return 0;
+//}
+
+// x, y 좌표 / Size (width, height) / hp / damage
+struct Skeleton
+{
+    int x = 0;
+    int y = 0;
+    int width = 0;
+    int height = 0;
+    int hp = 100;
+    int damage = 0;
 };
 
 struct Ground
@@ -94,42 +142,35 @@ int a, b;
 // struct 선언
 Ground ground;
 Floor floors;
+S_Player_Attack player_attack;
 Portal portal;
 Speed_item speed_item;
 HWND hWnd;
+Skeleton skel;
 
-// vector 출력 연산자 오버로드 선언
-ostream& operator <<(ostream& os, const Player& s_player)
-{
-    os << "s_player.x: " << s_player.x << " s_player.y : " << s_player.y << " s_player.width : "
-        << s_player.width << " s_player.height: " << s_player.height << " s_player.plus_speed: " << s_player.plus_speed;
 
-    return os;
-}
-
-void ShowAll(const vector<Player>& v_player)
-{
-    // 출력연산자가오버로드되어있기때문에벡터의내용을
-    // 쉽게출력가능함
-
-    copy(v_player.begin(), v_player.end(), ostream_iterator<Player>(cout, "\n"));
-}
 
 // 중력 Thread
 DWORD WINAPI gravity(LPVOID param)
 {
+    // 쓰레드가 발동되면 무한루프
     while (true)
     {
         // Thread 잠시멈춤
         Sleep(100);
 
+        // 조건을 검사한 뒤에
         if (floors.y < s_player.y + s_player.height / 2)
         {
+            // 성립 O → 중력 적용 X
             s_player.y = 336;
             g_jump_limit = 0;
             break;
         }
+        // 성립 X → 중력 적용 O
         s_player.y += 1;
+
+        // 화면 무효화
         InvalidateRect(hWnd, NULL, false);
     }
     return 0;
@@ -159,7 +200,6 @@ void player_move(WPARAM wParam)
         s_player.y += 10;
         break;
     }
-
 }
 
 void is_crash()
@@ -167,23 +207,43 @@ void is_crash()
     if (speed_item.x + 7 < s_player.x + s_player.width / 2)
     {
         //MessageBox(hWnd, L"speed up !", L"Up", MB_OK);
-        s_player.plus_speed += 2;
+        if (speed_plus == 0)
+        {
+            s_player.plus_speed += 5;
+            speed_plus++;
+        }
 
-        v_player.clear();
-        if (v_player.empty() == true)
+        // size 만 줄이고, 메모리 해제는 안 된 상태
+        v_player.clear(); 
+
+        // 메모리의 여부 상관없이, vector의 사이즈가 0인지 아닌지를 판단해서 BOOL 반환
+        if (v_player.empty() == true) 
         {
             is_item_die = true;
         }
+
+        // 화면 무효화
         InvalidateRect(hWnd, NULL, false);
     }
 
-    // 특정 조건을 충족하면 장소 이동하도록
+    // Portal - 특정 조건을 충족하면 장소 이동하도록
     if (portal.y < s_player.y + s_player.height / 2)
     {
         if (portal.x + 10 < s_player.x + s_player.width / 2)
         {
             g_press = false;
             g_portal_crash = true;
+        }
+    }
+
+    // Skeleton - 부딪히면, hp 감소
+    // 한 번만 동작
+    if (skel.x - skel.width / 2 + 10< s_player.x + s_player.width / 2)
+    {
+        if (counts == 0)
+        {
+            s_player.hp -= 10;
+            counts++;
         }
     }
 }
@@ -331,6 +391,13 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 //  WM_DESTROY  - 종료 메시지를 게시하고 반환합니다.
 //
 //
+
+// attack bitmap
+void attack_bitmap(HDC hdc, Player player, LONG attack_width, LONG attack_height)
+{
+    TransparentBlt(hdc, s_player.x - s_player.width / 2 + 30, s_player.y + s_player.height / 2 - 30, attack_width, attack_height, bitmap_dc9, 0, 0, attack_width, attack_height, RGB(255, 0, 255));
+}
+
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     switch (message)
@@ -344,6 +411,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         s_player.height = 30;
 
         v_player.push_back(s_player);
+
+        // Skeleton x,y / Size / damage
+        skel.x = 200;
+        skel.y = 269;
+        skel.width = 30;
+        skel.height = 30;
+        skel.damage = 10;
+
 
         // Ground x,y / Size
         ground.x = 0;
@@ -438,8 +513,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             PatBlt(hdc, 0, 0, resolution.x, resolution.y, WHITENESS);
 
             WCHAR speed[128];
+            WCHAR player_hp[128];
 
             wsprintf(speed, L"player speed = %d", s_player.plus_speed);
+            wsprintf(player_hp, L"player_hp = %d", s_player.hp);
 
             /*WCHAR player[128];
             WCHAR ground[128];
@@ -491,10 +568,24 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             HBITMAP old_bitmap_7 = (HBITMAP)SelectObject(bitmap_dc7, bitmap7);
             DeleteObject(old_bitmap_7);
 
+            // skeleton1.bmp - 8
+            bitmap8 = (HBITMAP)LoadImage(NULL, L"Skeleton1.bmp", IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE | LR_CREATEDIBSECTION);
+            bitmap_dc8 = CreateCompatibleDC(hdc);
+            HBITMAP old_bitmap_8 = (HBITMAP)SelectObject(bitmap_dc8, bitmap8);
+            DeleteObject(old_bitmap_8);
+            
+            // attack.bmp - 9
+            bitmap9 = (HBITMAP)LoadImage(NULL, L"attack.bmp", IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE | LR_CREATEDIBSECTION);
+            bitmap_dc9 = CreateCompatibleDC(hdc);
+            HBITMAP old_bitmap_9 = (HBITMAP)SelectObject(bitmap_dc9, bitmap9);
+            DeleteObject(old_bitmap_9);
+
             // 비트맵에 대한 정보를 담는다.
             GetObject(bitmap1, sizeof(BITMAP), &bitmap_info); // Background
             GetObject(bitmap6, sizeof(BITMAP), &bitmap_info2); // Player
             GetObject(bitmap7, sizeof(BITMAP), &Speed_item_info); // Speed_item
+            GetObject(bitmap8, sizeof(BITMAP), &skeleton_info); // Skeleton
+            GetObject(bitmap9, sizeof(BITMAP), &attack_info); // Attack
 
             // Background 비트맵의 가로 사이즈
             LONG width = bitmap_info.bmWidth;
@@ -513,6 +604,18 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
             // Speed_item 비트맵의 세로 사이즈 
             LONG Speed_item_height = Speed_item_info.bmHeight;
+
+            // Skeleton 비트맵의 가로 사이즈
+            LONG skel_width = skeleton_info.bmWidth;
+
+            // Skeleton 비트맵의 세로 사이즈 
+            LONG skel_height = skeleton_info.bmHeight;
+
+            // attack 비트맵의 가로 사이즈
+            LONG attack_width = attack_info.bmWidth;
+
+            // attack 비트맵의 세로 사이즈 
+            LONG attack_height = attack_info.bmHeight;
 
             if (g_press == true)
             {
@@ -538,9 +641,15 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 TransparentBlt(hdc, 0, 0, 700, 400, bitmap_dc4, 0, 0, width, height, RGB(255, 255, 255));
                 TransparentBlt(hdc, 0, 0, 700, 400, bitmap_dc5, 0, 0, width, height, RGB(255, 255, 255));
 
-                // Player Bitmap
-                TransparentBlt(hdc, s_player.x - s_player.width / 2 - 22, s_player.y - s_player.height / 2 - 32, player_width + 30, player_height + 25, bitmap_dc6, 0, 0, player_width, player_height, RGB(255, 0, 255));
+                // Skeleton Bitmap
+                TransparentBlt(hdc, skel.x - skel.width / 2, skel.y - skel.height / 2 + 19, skel_width + 18, skel_height + 15, bitmap_dc8, 0, 0, skel_width, skel_height, RGB(255, 0, 255));
 
+               
+                // Player Bitmap, attack bitmap
+                TransparentBlt(hdc, s_player.x - s_player.width / 2 - 22, s_player.y - s_player.height / 2 - 32, player_width + 30, player_height + 25, bitmap_dc6, 0, 0, player_width, player_height, RGB(255, 0, 255));
+                attack_bitmap(hdc, s_player, attack_width, attack_height);
+
+                // 아이템이 Player와 충돌 할 경우 그리지 않는다.
                 if (is_item_die == false)
                 {
                     // Speed_item Bitmap
@@ -553,8 +662,18 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 Rectangle(hdc, portal.x, portal.y, portal.x + portal.width, portal.y + portal.height);
 
                 TextOut(hdc, 10, 10, speed, wcslen(speed));
-            /*    TextOut(hdc, 10, 10, player, wcslen(player));
-                TextOut(hdc, 10, 30, ground, wcslen(ground));*/
+                //TextOut(hdc, 10, 30, player_hp, wcslen(player_hp));
+                
+                // 공격이 나가는 좌표 : s_player.x - s_player.width / 2 + 30, s_player.y + s_player.height / 2 - 30
+                
+                // 공격 구현 하는데 필요한 거
+                
+                // 조준점 시험 Textout
+                //TextOut(hdc, s_player.x - s_player.width / 2 + 30, s_player.y + s_player.height / 2 - 30, L"3", lstrlen(L"3"));
+                TextOut(hdc, 10, 30, player_hp, wcslen(player_hp));
+
+                //TextOut(hdc, 10, 10, player, wcslen(player));
+                //TextOut(hdc, 10, 30, ground, wcslen(ground));
 
             }
             // 비트맵 메모리 해제
@@ -581,6 +700,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     }
     return 0;
 }
+
 
 // 정보 대화 상자의 메시지 처리기입니다.
 INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)

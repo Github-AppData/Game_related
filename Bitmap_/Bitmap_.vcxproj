@@ -158,8 +158,11 @@
     <Image Include="b4.bmp" />
     <Image Include="b5.bmp" />
     <Image Include="basic_standing.bmp" />
+    <Image Include="attack.bmp" />
+    <Image Include="bitmap15.bmp" />
     <Image Include="bitmap3.bmp" />
     <Image Include="Bitmap_.ico" />
+    <Image Include="Skeleton1.bmp" />
     <Image Include="small.ico" />
     <Image Include="Speed_item.bmp" />
   </ItemGroup>

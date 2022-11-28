@@ -72,5 +72,14 @@
     <Image Include="Speed_item.bmp">
       <Filter>리소스 파일</Filter>
     </Image>
+    <Image Include="Skeleton1.bmp">
+      <Filter>리소스 파일</Filter>
+    </Image>
+    <Image Include="attack.bmp">
+      <Filter>리소스 파일</Filter>
+    </Image>
+    <Image Include="bitmap15.bmp">
+      <Filter>리소스 파일</Filter>
+    </Image>
   </ItemGroup>
 </Project>
