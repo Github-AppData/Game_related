@@ -23,12 +23,14 @@ RECT client_area; // 해상도를 토대로 클라이언트 영역을 저장할 
 BOOL g_press = false;
 BOOL g_portal_crash = false;
 BOOL g_Key_D = false;
+HANDLE handle;
 BOOL is_item_die = false;
 int g_jump_limit = 0;
 int speed_plus = 0;
 
 int counts = 0;
 BOOL is = false;
+BOOL is_thread = false;
 
 // Thread
 HANDLE thread;
@@ -46,7 +48,13 @@ struct Player
     int y = 0;
     int width = 0;
     int height = 0;
+
+    // hp
     int hp = 100;
+    int max_hp = 100;
+    int width_hp = 300;
+
+    // item
     int plus_speed = 0;
 };
 
@@ -64,26 +72,8 @@ struct Player
 // LBD → Attack Thread 작동 - 사정거리 있다. (MAX 사정거리 도달 시 - 공격 비트맵 삭제)
 // Attack Struct의 인수들 - range (사정거리), damage, attack_speed 
 
-// Player 공격 
-//DWORD WINAPI D_Player_Attack(LPVOID param)
-//{
-//    // 쓰레드가 발동되면 무한루프
-//    while (true)
-//    {
-//        // Thread 잠시멈춤
-//        Sleep(100);
-//
-//        // 조건을 검사한 뒤에
-//        if ()
-//        {
-//           
-//        }
-//
-//        // 화면 무효화
-//        InvalidateRect(hWnd, NULL, false);
-//    }
-//    return 0;
-//}
+
+
 
 // x, y 좌표 / Size (width, height) / hp / damage
 struct Skeleton
@@ -102,6 +92,12 @@ struct Ground
     int y = 0;
     int width = 0;
     int height = 0;
+};
+
+struct hp_bar
+{
+    int hp = 0;
+    int hp_max = 100;
 };
 
 struct Floor
@@ -128,12 +124,24 @@ struct Speed_item
     int height = 0;
 };
 
+struct SPlayerAttack
+{
+
+    int x = 0; // 좌표
+    int y = 0; // 좌표
+    int damage = 20; // 대미지
+};
+
+
+SPlayerAttack s_Attack;
+SPlayerAttack* p = new SPlayerAttack();
+vector <SPlayerAttack> v_attack;
+
 /* ---- The End Struct ---- */
 
 // Player - struct, vector 선언
 Player s_player;
 vector<Player> v_player;
-
 
 // Vector iterator 선언
 vector<Player>::iterator iter = v_player.begin();
@@ -148,14 +156,30 @@ Speed_item speed_item;
 HWND hWnd;
 Skeleton skel;
 
-struct SPlayerAttack
+// attack bitmap
+void attack_bitmap(HDC hdc)
 {
-    
-       int x = 0; // 좌표
-       int y = 0; // 좌표
-       int damage = 20; // 대미지
-};
+    TransparentBlt(hdc, p->x, p->y, 11, 10, bitmap_dc9, 0, 0, 11, 10, RGB(255, 0, 255));
+}
 
+HDC hdc;
+// Player 공격 
+DWORD WINAPI D_Player_Attack(LPVOID param)
+{
+    // 쓰레드가 발동되면 무한루프
+    hdc = GetDC(hWnd);
+    while (true)
+    {
+        // Thread 잠시멈춤
+        Sleep(10);
+        attack_bitmap(hdc);
+        p->x += 10;
+
+        // 화면 무효화
+        InvalidateRect(hWnd, NULL, false);
+    }
+    return 0;
+}
 
 
 
@@ -173,6 +197,7 @@ DWORD WINAPI gravity(LPVOID param)
         {
             // 성립 O → 중력 적용 X
             s_player.y = 336;
+            // 바닥에 닿으면, 점프 초기화
             g_jump_limit = 0;
             break;
         }
@@ -184,28 +209,50 @@ DWORD WINAPI gravity(LPVOID param)
     }
     return 0;
 }
+void move_p() 
+{
+}
 
 void player_move(WPARAM wParam)
 {
 
     switch (wParam)
     {
+    // 플레이어 이동시 총알의 좌표도 같이 이동할 수 있도록
     case 'A':
-        s_player.x -= 10;
+        if (is_thread == true)
+        {
+            break;
+        }
+        s_player.x -= 5;
+        s_player.x -= s_player.plus_speed;
         break;
     case 'D':
+        if (is_thread == true)
+        {
+            break;
+        }
+        move_p();
         s_player.x += 5;
         s_player.x += s_player.plus_speed;
         break;
     case 'W':
-        if (g_jump_limit >= 2)
+        if (is_thread == true)
         {
             break;
         }
+        move_p();
+        // 점프 기회 다 쓰면, 더 이상 점프를 하지 못하도록 하는 조건 문이다.
+        if (g_jump_limit >= 2) { break; }
         g_jump_limit++;
         s_player.y -= 20;
         break;
     case 'S':
+        if (is_thread == true)
+        {
+            break;
+        }
+        move_p();
         s_player.y += 10;
         break;
     }
@@ -401,12 +448,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 //
 //
 
-// attack bitmap
-void attack_bitmap(HDC hdc, Player player, LONG attack_width, LONG attack_height)
-{
 
-    TransparentBlt(hdc, p->x, p->y, attack_width, attack_height, bitmap_dc9, 0, 0, attack_width, attack_height, RGB(255, 0, 255));
-}
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -414,22 +456,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     {
     case WM_CREATE:
     {
-        // s_player.x - s_player.width / 2 + 30
-    // s_player.y + s_player.height / 2 - 30
-        SPlayerAttack* p = NULL;
-        SPlayerAttack s;
-        p = &s;
-        s.x = s_player.x - s_player.width / 2 + 30;
-        s.y = s_player.y + s_player.height / 2 - 30;
-
-
         // Player x,y / Size
         s_player.x = 16;
         s_player.y = 336;
         s_player.width = 30;
         s_player.height = 30;
-
         v_player.push_back(s_player);
+
+        // 
+        p->x = s_player.x - s_player.width / 2 + 30;
+        p->y = s_player.y + s_player.height / 2 - 30;
+
 
         // Skeleton x,y / Size / damage
         skel.x = 200;
@@ -666,7 +703,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                
                 // Player Bitmap, attack bitmap
                 TransparentBlt(hdc, s_player.x - s_player.width / 2 - 22, s_player.y - s_player.height / 2 - 32, player_width + 30, player_height + 25, bitmap_dc6, 0, 0, player_width, player_height, RGB(255, 0, 255));
-                attack_bitmap(hdc, s_player, attack_width, attack_height);
+                TransparentBlt(hdc, p->x, p->y, attack_width, attack_height, bitmap_dc9, 0, 0, attack_width, attack_height, RGB(255, 0, 255));
+
+                //attack_bitmap(hdc, s_player, attack_width + 30, attack_height + 30);
+
 
                 // 아이템이 Player와 충돌 할 경우 그리지 않는다.
                 if (is_item_die == false)
@@ -676,8 +716,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     InvalidateRect(hWnd, NULL, false);
                 }
 
-                // Floors, Portal Rectangle - Bitmap 으로 전환 예정
+                // Floors, HP_BAR, Portal Rectangle - Bitmap 으로 전환 예정
                 Rectangle(hdc, floors.x, floors.y, floors.width, floors.y + floors.height);
+                Rectangle(hdc, s_player.x - 40, s_player.y + 18, s_player.x + 50, s_player.y + 23); // Player - hp_bar
+                Rectangle(hdc, skel.x - 20, skel.y + 85, (s_player.hp / s_player.max_hp) * s_player.width_hp, skel.y + 90); // Skeleton - hp_bar
+
                 Rectangle(hdc, portal.x, portal.y, portal.x + portal.width, portal.y + portal.height);
 
                 TextOut(hdc, 10, 10, speed, wcslen(speed));
@@ -715,13 +758,29 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             DeleteDC(bitmap_dc9);
             DeleteObject(bitmap9);
 
-
             BitBlt(memDC, 0, 0, resolution.x, resolution.y, hdc, 0, 0, SRCCOPY);
 
             DeleteDC(hdc);
             EndPaint(hWnd, &ps);
         }
         break;
+        case WM_LBUTTONDOWN:
+        {
+            p->x = s_player.x - s_player.width / 2 + 30;
+            p->y = s_player.y + s_player.height / 2 - 30;
+                
+            // 쓰레드 실행
+            handle = CreateThread(NULL, 0, D_Player_Attack, hWnd, 0, NULL);
+        }
+        break;
+        case WM_LBUTTONUP:
+        {
+            is_thread = false;
+            // 쓰레드 일시정지
+            SuspendThread(handle);
+        }
+        break;
+        
     case WM_DESTROY:
         PostQuitMessage(0);
         break;
