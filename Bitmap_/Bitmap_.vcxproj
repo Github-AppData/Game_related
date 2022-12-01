@@ -152,6 +152,7 @@
   </ItemGroup>
   <ItemGroup>
     <Image Include="1_stage_forest.bmp" />
+    <Image Include="attack_sprite.bmp" />
     <Image Include="b1.bmp" />
     <Image Include="b2.bmp" />
     <Image Include="b3.bmp" />
@@ -162,6 +163,7 @@
     <Image Include="bitmap15.bmp" />
     <Image Include="bitmap3.bmp" />
     <Image Include="Bitmap_.ico" />
+    <Image Include="fox_pet.bmp" />
     <Image Include="Skeleton1.bmp" />
     <Image Include="small.ico" />
     <Image Include="Speed_item.bmp" />

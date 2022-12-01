@@ -51,14 +51,14 @@ struct Player
 };
 
 
-struct S_Player_Attack
-{
-    int x = s_player.x - s_player.width / 2 + 30;
-    int y = s_player.y + s_player.height / 2 - 30;
-    int max_range = 0;
-    int damage = 0;
-    int speed = 0;
-};
+//struct S_Player_Attack
+//{
+//    int x = s_player.x - s_player.width / 2 + 30;
+//    int y = s_player.y + s_player.height / 2 - 30;
+//    int max_range = 0;
+//    int damage = 0;
+//    int speed = 0;
+//};
 
 // 1. 공격 비트맵 (작은 원) / 2. 공격이 나갈 수 있는 Thread / 3. Thread - Sleep (연사 방지)
 // LBD → Attack Thread 작동 - 사정거리 있다. (MAX 사정거리 도달 시 - 공격 비트맵 삭제)
@@ -142,11 +142,20 @@ int a, b;
 // struct 선언
 Ground ground;
 Floor floors;
-S_Player_Attack player_attack;
+//S_Player_Attack player_attack;
 Portal portal;
 Speed_item speed_item;
 HWND hWnd;
 Skeleton skel;
+
+struct SPlayerAttack
+{
+    
+       int x = 0; // 좌표
+       int y = 0; // 좌표
+       int damage = 20; // 대미지
+};
+
 
 
 
@@ -395,7 +404,8 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 // attack bitmap
 void attack_bitmap(HDC hdc, Player player, LONG attack_width, LONG attack_height)
 {
-    TransparentBlt(hdc, s_player.x - s_player.width / 2 + 30, s_player.y + s_player.height / 2 - 30, attack_width, attack_height, bitmap_dc9, 0, 0, attack_width, attack_height, RGB(255, 0, 255));
+
+    TransparentBlt(hdc, p->x, p->y, attack_width, attack_height, bitmap_dc9, 0, 0, attack_width, attack_height, RGB(255, 0, 255));
 }
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
@@ -404,6 +414,15 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     {
     case WM_CREATE:
     {
+        // s_player.x - s_player.width / 2 + 30
+    // s_player.y + s_player.height / 2 - 30
+        SPlayerAttack* p = NULL;
+        SPlayerAttack s;
+        p = &s;
+        s.x = s_player.x - s_player.width / 2 + 30;
+        s.y = s_player.y + s_player.height / 2 - 30;
+
+
         // Player x,y / Size
         s_player.x = 16;
         s_player.y = 336;
@@ -679,12 +698,23 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             // 비트맵 메모리 해제
             DeleteDC(bitmap_dc);
             DeleteObject(bitmap);
-            // 비트맵 메모리 해제
             DeleteDC(bitmap_dc2);
             DeleteObject(bitmap2);
-            // 비트맵 메모리 해제
             DeleteDC(bitmap_dc3);
             DeleteObject(bitmap3);
+            DeleteDC(bitmap_dc4);
+            DeleteObject(bitmap4);
+            DeleteDC(bitmap_dc5);
+            DeleteObject(bitmap5);
+            DeleteDC(bitmap_dc6);
+            DeleteObject(bitmap6);
+            DeleteDC(bitmap_dc7);
+            DeleteObject(bitmap7);
+            DeleteDC(bitmap_dc8);
+            DeleteObject(bitmap8);
+            DeleteDC(bitmap_dc9);
+            DeleteObject(bitmap9);
+
 
             BitBlt(memDC, 0, 0, resolution.x, resolution.y, hdc, 0, 0, SRCCOPY);
 
