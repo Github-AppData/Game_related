@@ -37,10 +37,8 @@ int g_jump_limit = 0; // 점프 제한
 int speed_plus = 0; // 
 BOOL is_hp_decrease = false; // hp 감소
 int counts = 0; // Player가 Skeleton에 맞는 횟수 - 유효하는 횟수 
-int dx, dy;
+float dx, dy;
 float degree;
-
-
 
 // HP 
 // 브러시 자료형 선언
@@ -148,6 +146,8 @@ struct SPlayerAttack
 
 SPlayerAttack s_Attack;
 SPlayerAttack* p = new SPlayerAttack();
+vector<SPlayerAttack> player_attack; // 플레이어 어택 비트맵
+
 
 
 /* ---- The End Struct ---- */
@@ -187,8 +187,8 @@ DWORD WINAPI D_Player_Attack(LPVOID param)
         // Thread 잠시멈춤
         Sleep(50);
         attack_bitmap(hdc);
-        p->y += degree;
-        p->x += dx;
+        p->y += dy * 50.f;
+        p->x += dx * 50.f;
 
         // 화면 무효화
         InvalidateRect(hWnd, NULL, false);
@@ -239,6 +239,8 @@ void player_move(WPARAM wParam)
         {
             break;
         }
+        p->x = s_player.x - s_player.width / 2;
+        p->y = s_player.y - s_player.height / 2;
         s_player.x -= 5;
         s_player.x -= s_player.plus_speed;
         break;
@@ -249,12 +251,16 @@ void player_move(WPARAM wParam)
         }
         s_player.x += 5;
         s_player.x += s_player.plus_speed;
+        p->x = s_player.x - s_player.width / 2;
+        p->y = s_player.y - s_player.height / 2;
         break;
     case 'W':
         if (is_thread == true)
         {
             break;
         }
+        p->x = s_player.x - s_player.width / 2;
+        p->y = s_player.y - s_player.height / 2;
         // 점프 기회 다 쓰면, 더 이상 점프를 하지 못하도록 하는 조건 문이다.
         if (g_jump_limit >= 2) { break; }
         g_jump_limit++;
@@ -266,6 +272,8 @@ void player_move(WPARAM wParam)
             break;
         }
         s_player.y += 10;
+        p->x = s_player.x - s_player.width / 2;
+        p->y = s_player.y - s_player.height / 2;
         break;
     }
 }
@@ -848,7 +856,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             EndPaint(hWnd, &ps);
         }
         break;
-        case WM_MOUSEMOVE:
+       
+        case WM_LBUTTONDOWN:
         {
             int mouse_x, mouse_y;
 
@@ -858,30 +867,20 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             // p - 공격이 날아가는 방향
             // 식 - 역 탄젠트의 세터 값 = atan2(dy, dx); 
 
-            // int dx, dy;
             dx = mouse_x - s_player.x; // Vx의 값을 구하기 
-            dy = mouse_y - (s_player.y - s_player.height / 2) ; // Vy의 값을 구하기
+            dy = mouse_y - s_player.y; // Vy의 값을 구하기
 
-            // 사이 값 구하기
-            // radian, degree - 둘 다 같은 값이다. (우리가 흔히 알아볼 수 있는 각도의 값은 degree)
-            float radian = atan2(dy, dx); // radian - 역 탄젠트 세터 값.
-            degree = radian * 180 / 3.14; // 플레이어와 마우스 포인터의 각도 - 우리가 흔히 하는 각도 - 앵글
+            float m = sqrt(pow(dx, 2) + pow(dy, 2));
 
-            float V = dx / cos(radian); // V - 플레이어와 마우스 포인터의 거리 값.
-            p->max_range = V; // 플레이어와 마우스 포인터의 거리 값 → 맥스 사정거리
-        }
-        break;
-        case WM_LBUTTONDOWN:
-        {
-            // 조준점 - 총구
-            p->x = s_player.x - s_player.width / 2 + 30;
-            p->y = s_player.y - s_player.height / 2; 
+            if (m > 0)
+            {
+                // 정규화 - 그대로 값을 넣으면 700x400 화면에 나타나지 않기 때문에 정규화를 시킨다.
+                dx /= m;
+                dy /= m;
+            }
                 
-         /*   for (int i = 0; i < p->max_range; i++)
-            {*/
-                // 쓰레드 실행
-                handle = CreateThread(NULL, 0, D_Player_Attack, hWnd, 0, NULL);
-            //}
+            // 쓰레드 실행
+            handle = CreateThread(NULL, 0, D_Player_Attack, hWnd, 0, NULL);
         }
         break;
         case WM_LBUTTONUP:
