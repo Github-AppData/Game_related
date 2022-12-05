@@ -36,6 +36,7 @@ BOOL is_item_die = false; // 아이템을 먹었는지 확인 유무
 int g_jump_limit = 0; // 점프 제한
 int speed_plus = 0; // 
 BOOL is_hp_decrease = false; // hp 감소
+BOOL is_hp_skel_decrease = false; // skeleton hp 감소
 int counts = 0; // Player가 Skeleton에 맞는 횟수 - 유효하는 횟수 
 float dx, dy;
 float degree;
@@ -100,6 +101,7 @@ struct Skeleton
     int height = 0;
     int hp = 100;
     int damage = 20;
+    BOOL is_death = false;
 };
 
 struct Ground
@@ -143,12 +145,9 @@ struct SPlayerAttack
     int max_range = 0; // 사정거리 - V 값으로 대입 될 예정
 };
 
-
 SPlayerAttack s_Attack;
 SPlayerAttack* p = new SPlayerAttack();
 vector<SPlayerAttack> player_attack; // 플레이어 어택 비트맵
-
-
 
 /* ---- The End Struct ---- */
 
@@ -169,6 +168,7 @@ Portal portal;
 Speed_item speed_item;
 HWND hWnd;
 Skeleton skel;
+Skeleton* p_skel = new Skeleton();
 
 // attack bitmap
 void attack_bitmap(HDC hdc)
@@ -189,6 +189,21 @@ DWORD WINAPI D_Player_Attack(LPVOID param)
         attack_bitmap(hdc);
         p->y += dy * 50.f;
         p->x += dx * 50.f;
+        if (p->y > 270)
+        {
+            if (s_player.x - s_player.width / 2 < skel.x - skel.width / 2 && p->x > skel.x - 20)
+            {
+                is_hp_skel_decrease = true;
+            }
+        }
+        if (p->y > 270)
+        {
+            if (s_player.x - s_player.width / 2 > skel.x - skel.width / 2 && p->x < skel.x - skel.width / 2 + 36)
+            {
+                is_hp_skel_decrease = true;
+            }
+        }
+        
 
         // 화면 무효화
         InvalidateRect(hWnd, NULL, false);
@@ -226,6 +241,8 @@ DWORD WINAPI gravity(LPVOID param)
 }
 void move_p() 
 {
+    p->x = s_player.x - s_player.width / 2;
+    p->y = s_player.y - s_player.height / 2;
 }
 
 void player_move(WPARAM wParam)
@@ -239,8 +256,8 @@ void player_move(WPARAM wParam)
         {
             break;
         }
-        p->x = s_player.x - s_player.width / 2;
-        p->y = s_player.y - s_player.height / 2;
+        move_p();
+
         s_player.x -= 5;
         s_player.x -= s_player.plus_speed;
         break;
@@ -249,18 +266,16 @@ void player_move(WPARAM wParam)
         {
             break;
         }
+        move_p();
         s_player.x += 5;
         s_player.x += s_player.plus_speed;
-        p->x = s_player.x - s_player.width / 2;
-        p->y = s_player.y - s_player.height / 2;
         break;
     case 'W':
         if (is_thread == true)
         {
             break;
         }
-        p->x = s_player.x - s_player.width / 2;
-        p->y = s_player.y - s_player.height / 2;
+        move_p();
         // 점프 기회 다 쓰면, 더 이상 점프를 하지 못하도록 하는 조건 문이다.
         if (g_jump_limit >= 2) { break; }
         g_jump_limit++;
@@ -271,9 +286,8 @@ void player_move(WPARAM wParam)
         {
             break;
         }
+        move_p();
         s_player.y += 10;
-        p->x = s_player.x - s_player.width / 2;
-        p->y = s_player.y - s_player.height / 2;
         break;
     }
 }
@@ -312,18 +326,25 @@ void is_crash()
         }
     }
 
+    if (is_hp_skel_decrease == true)
+    {
+        if (p_skel->hp <= 0)
+        {
+            p_skel->is_death = true;
+        } 
+        p_skel->hp -= 10;
+    }
     // Skeleton - 부딪히면, hp 감소
     if (is_hp_decrease == true)
     {
-        
         // HP가 0 보다 적으면
         if (p_player->hp <= 0 )
         {
             p_player->lifes -= 1;
 
             // 총알 위치 재 지정
-            p->x = 0;
-            p->y = 0;
+            p->x = s_player.x - s_player.width / 2;
+            p->y = s_player.y - s_player.height / 2;
 
             // 플레이어 위치 재 지정
             s_player.x = 16;
@@ -518,7 +539,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     case WM_CREATE:
     {
         // Player x,y / Size
-        s_player.x = 300;
+        s_player.x = 50;
         s_player.y = 336;
         s_player.width = 30;
         s_player.height = 30;
@@ -606,6 +627,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         {
             is_hp_decrease = false;
         }
+
+        // 공이 skeleton을 지나피면, hp 감소 적용 X
+        
         
         // 라이프 - Retry Chance
         // 포션 존재 함 - 상점에서 구매 가능 - int lifes = 3; - if(lifes == 0) { is_real_death = true };
@@ -639,8 +663,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
             WCHAR speed[128];
             WCHAR player_hp[128];
+            WCHAR ball[128];
 
             wsprintf(speed, L"player speed = %d", s_player.plus_speed);
+            wsprintf(ball, L"ball x = %d | ball y = %d", p->x, p->y);
             wsprintf(player_hp, L"player_hp = %d", p_player->hp);
 
             /*WCHAR player[128];
@@ -734,7 +760,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             LONG skel_width = skeleton_info.bmWidth;
 
             // Skeleton 비트맵의 세로 사이즈 
-            LONG skel_height = skeleton_info.bmHeight;
+             LONG skel_height = skeleton_info.bmHeight;
 
             // attack 비트맵의 가로 사이즈
             LONG attack_width = attack_info.bmWidth;
@@ -767,8 +793,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 TransparentBlt(hdc, 0, 0, 700, 400, bitmap_dc5, 0, 0, width, height, RGB(255, 255, 255));
 
                 // Skeleton Bitmap
-                TransparentBlt(hdc, skel.x - skel.width / 2, skel.y - skel.height / 2 + 19, skel_width + 18, skel_height + 15, bitmap_dc8, 0, 0, skel_width, skel_height, RGB(255, 0, 255));
-
+                if (p_skel->is_death == false)
+                {
+                    TransparentBlt(hdc, skel.x - skel.width / 2, skel.y - skel.height / 2 + 19, skel_width + 18, skel_height + 15, bitmap_dc8, 0, 0, skel_width, skel_height, RGB(255, 0, 255));
+                }
+                if (p_skel->is_death == true)
+                {
+                    skel.x = 0;
+                    skel.y = 0;
+                    skel.width = 0;
+                    skel.height = 0;
+                }
       
                 // Player Bitmap, attack bitmap
                 if (p_player->is_death == false)
@@ -792,12 +827,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 Rectangle(hdc, floors.x, floors.y, floors.width, floors.y + floors.height);
                 
 
-                // Player HP bar
+                // Player HP Fix bar
                 if (p_player->is_death == false)
                 {
                     Rectangle(hdc, s_player.x - 45, s_player.y + 18, s_player.x + 45, s_player.y + 23); // Player - hp_bar
                 }
-                Rectangle(hdc, skel.x - 20, skel.y + 85, skel.x + 20, skel.y + 90); // Skeleton - hp_bar
+
+                // Skeleton HP Fix Bar
+                if (p_skel->is_death == false)
+                {
+                    Rectangle(hdc, skel.x - 20, skel.y + 85, skel.x + 80, skel.y + 90); // Skeleton - hp_bar
+                }
 
                 Rectangle(hdc, portal.x, portal.y, portal.x + portal.width, portal.y + portal.height);
 
@@ -806,16 +846,20 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 os_b = (HBRUSH)SelectObject(hdc, my_b);
                 DeleteObject(os_b);
 
-                Rectangle(hdc, skel.x, skel.y + 85, skel.x + skel.hp, skel.y + 90); // Skeleton - hp_bar
+                // skeleton, Player HP Bar
+                if (p_skel->is_death == false)
+                {
+                    Rectangle(hdc, skel.x - 20, skel.y + 85, (skel.x - 20) + p_skel->hp, skel.y + 90); // Skeleton - hp_bar
+                }
                 if (p_player->is_death == false)
                 {
                     Rectangle(hdc, s_player.x - 45, s_player.y + 18, (s_player.x - 45) + p_player->hp, s_player.y + 23); // Player - hp_bar
                 }
                 DeleteObject(my_b);
 
-
-
                 TextOut(hdc, 10, 10, speed, wcslen(speed));
+                TextOut(hdc, 10, 30, ball, wcslen(ball));
+
                 //TextOut(hdc, 10, 30, player_hp, wcslen(player_hp));
                 
                 // 공격이 나가는 좌표 : s_player.x - s_player.width / 2 + 30, s_player.y + s_player.height / 2 - 30
@@ -824,15 +868,18 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 
                 // 조준점 시험 Textout
                 //TextOut(hdc, s_player.x - s_player.width / 2 + 30, s_player.y + s_player.height / 2 - 30, L"3", lstrlen(L"3"));
-                TextOut(hdc, 10, 30, player_hp, wcslen(player_hp));
+                //TextOut(hdc, 10, 30, player_hp, wcslen(player_hp));
 
                 //TextOut(hdc, 10, 10, player, wcslen(player));
                 //TextOut(hdc, 10, 30, ground, wcslen(ground));
 
             }
+
+            BitBlt(memDC, 0, 0, resolution.x, resolution.y, hdc, 0, 0, SRCCOPY);
+
             // 비트맵 메모리 해제
-            DeleteDC(bitmap_dc);
-            DeleteObject(bitmap);
+            DeleteDC(bitmap_dc1);
+            DeleteObject(bitmap1);
             DeleteDC(bitmap_dc2);
             DeleteObject(bitmap2);
             DeleteDC(bitmap_dc3);
@@ -850,9 +897,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             DeleteDC(bitmap_dc9);
             DeleteObject(bitmap9);
 
-            BitBlt(memDC, 0, 0, resolution.x, resolution.y, hdc, 0, 0, SRCCOPY);
-
             DeleteDC(hdc);
+            DeleteDC(memDC);
+            DeleteObject(new_bitmap);
             EndPaint(hWnd, &ps);
         }
         break;
