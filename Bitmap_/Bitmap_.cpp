@@ -40,6 +40,8 @@ BOOL is_hp_skel_decrease = false; // skeleton hp 감소
 int counts = 0; // Player가 Skeleton에 맞는 횟수 - 유효하는 횟수 
 float dx, dy;
 float degree;
+BOOL is_no_crash = false; // 플레이어가 움직일 때는 
+
 
 // HP 
 // 브러시 자료형 선언
@@ -247,7 +249,7 @@ void move_p()
 
 void player_move(WPARAM wParam)
 {
-
+    
     switch (wParam)
     {
     // 플레이어 이동시 총알의 좌표도 같이 이동할 수 있도록
@@ -294,6 +296,12 @@ void player_move(WPARAM wParam)
 
 void is_crash()
 {
+    if (s_player.x - s_player.width / 2 > skel.x - skel.width / 2 || s_player.x - s_player.width / 2 - 55< skel.x - skel.width / 2)
+    {
+        is_no_crash = true;
+    }
+    
+    //  Speed_item
     if (speed_item.x + 7 < s_player.x + s_player.width / 2)
     {
         //MessageBox(hWnd, L"speed up !", L"Up", MB_OK);
@@ -326,7 +334,7 @@ void is_crash()
         }
     }
 
-    if (is_hp_skel_decrease == true)
+    if (is_hp_skel_decrease == true && is_no_crash == false)
     {
         if (p_skel->hp <= 0)
         {
@@ -539,7 +547,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     case WM_CREATE:
     {
         // Player x,y / Size
-        s_player.x = 50;
+        s_player.x = 400;
         s_player.y = 336;
         s_player.width = 30;
         s_player.height = 30;
@@ -618,15 +626,15 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         {
             player_move(wParam);
         }
-
-        Player_Area_Limit(); // 플레이어 영역 제한
-        is_crash();
-
         // 플레이어가 스켈레톤을 지나치면 hp 감소 적용 X
         if (skel.x - skel.width / 2 + 25 > s_player.x + s_player.width / 2)
         {
             is_hp_decrease = false;
         }
+        Player_Area_Limit(); // 플레이어 영역 제한
+        is_crash();
+
+        
 
         // 공이 skeleton을 지나피면, hp 감소 적용 X
         
