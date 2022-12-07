@@ -213,6 +213,19 @@ DWORD WINAPI D_Player_Attack(LPVOID param)
     return 0;
 }
 
+//DWORD WINAPI skeleton_auto_move(LPVOID param)
+//{
+//    while (true)
+//    {
+//        Sleep(100);
+//        // 특정 영역만 움직일 수 있는 조건 문
+//        if (p_skel->x > 200 && p_skel->x < 600)
+//        {
+//            // 자동 움직임
+//            if(p_skel->x > )
+//        }
+//    }
+//}
 
 
 // 중력 Thread
