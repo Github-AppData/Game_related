@@ -1,7 +1,9 @@
 ﻿// Bitmap_.cpp : 애플리케이션에 대한 진입점을 정의합니다.
 //
 
+// 
 #pragma comment(lib, "msimg32.lib")
+
 
 #include <math.h>
 #include <vector>
@@ -13,12 +15,6 @@
 
 #define MAX_LOADSTRING 100
 using namespace std;
-
-int i = 0;
-
-
-
-
 
 // 전역 변수:
 HINSTANCE hInst;                                // 현재 인스턴스입니다.
@@ -34,6 +30,7 @@ RECT client_area; // 해상도를 토대로 클라이언트 영역을 저장할 
 BOOL g_press = false; // 스페이스 바 누름 여부 확인 - 게임 시작
 BOOL g_portal_crash = false; // 포탈 충돌 여부 확인
 BOOL g_Key_D = false; // 
+BOOL is_no_crash = false;
 
 HANDLE handle; // Thread 핸들
 BOOL is_item_die = false; // 아이템을 먹었는지 확인 유무
@@ -41,16 +38,9 @@ int g_jump_limit = 0; // 점프 제한
 int speed_plus = 0; // 
 BOOL is_hp_decrease = false; // hp 감소
 BOOL is_hp_skel_decrease = false; // skeleton hp 감소
-int counts = 0; // Player가 Skeleton에 맞는 횟수 - 유효하는 횟수 
-float dx, dy;
-float degree;
-BOOL is_no_crash = false; // 플레이어가 움직일 때는 
 
-
-// HP 
-// 브러시 자료형 선언
+// HP 브러시 자료형 선언
 HBRUSH os_b, my_b;
-
 
 BOOL is = false;
 BOOL is_thread = false;
@@ -61,7 +51,7 @@ DWORD tid;
 
 // 비트맵
 HBITMAP bitmap, bitmap1, bitmap2, bitmap3, bitmap4, bitmap5, bitmap6, bitmap7, bitmap8, bitmap9, bitmap10; // 로드한 비트맵을 저장하는 변수
-BITMAP bitmap_info, bitmap_info2, Speed_item_info, skeleton_info, attack_info; // 로드한 비트맵의 정보를 저장하는 변수
+BITMAP bitmap_info, bitmap_info2, Speed_item_info, skeleton_info, bullet_info; // 로드한 비트맵의 정보를 저장하는 변수
 HDC bitmap_dc, bitmap_dc1, bitmap_dc2, bitmap_dc3, bitmap_dc4, bitmap_dc5, bitmap_dc6, bitmap_dc7, bitmap_dc8, bitmap_dc9, bitmap_dc10; // 비트맵을 메모리 DC에 저장하는 변수
 
 /* ------- Struct ------- */
@@ -78,30 +68,13 @@ struct Player
 	int height = 0;
 	BOOL is_death = false; // 완전히 죽는 것
 	int lifes = 3; // 라이프 수를 의미한다.
-
-	// hp
 	int hp = 100;
-
-	// item
 	int plus_speed = 0;
 };
-
-
-//struct S_Player_Attack
-//{
-//    int x = s_player.x - s_player.width / 2 + 30;
-//    int y = s_player.y + s_player.height / 2 - 30;
-//    int max_range = 0;
-//    int damage = 0;
-//    int speed = 0;
-//};
 
 // 1. 공격 비트맵 (작은 원) / 2. 공격이 나갈 수 있는 Thread / 3. Thread - Sleep (연사 방지)
 // LBD → Attack Thread 작동 - 사정거리 있다. (MAX 사정거리 도달 시 - 공격 비트맵 삭제)
 // Attack Struct의 인수들 - range (사정거리), damage, attack_speed 
-
-
-
 
 // x, y 좌표 / Size (width, height) / hp / damage
 struct Skeleton
@@ -115,51 +88,15 @@ struct Skeleton
 	BOOL is_death = false;
 };
 
-struct Ground
+struct Object
 {
 	int x = 0;
 	int y = 0;
 	int width = 0;
 	int height = 0;
-};
-
-
-
-struct Floor
-{
-	int x = 0;
-	int y = 0;
-	int width = 0;
-	int height = 0;
-};
-
-struct Portal
-{
-	int x = 0;
-	int y = 0;
-	int width = 0;
-	int height = 0;
-};
-
-struct Speed_item
-{
-	int x = 0;
-	int y = 0;
-	int width = 0;
-	int height = 0;
-};
-
-struct SPlayerAttack
-{
-	int x = 0; // 좌표
-	int y = 0; // 좌표
-	int max_range = 0; // 사정거리 - V 값으로 대입 될 예정
 };
 
 skeleton_area_limit skel_limit;
-SPlayerAttack s_Attack;
-SPlayerAttack* p = new SPlayerAttack();
-vector<SPlayerAttack> player_attack; // 플레이어 어택 비트맵
 
 /* ---- The End Struct ---- */
 
@@ -173,20 +110,18 @@ vector<Player>::iterator iter = v_player.begin();
 int a, b;
 
 // struct 선언
-Ground ground;
-Floor floors;
+// Ground Floor Portal Speed_item
+Object ground;
+Object floors;
+Object portal;
+Object speed_item;
+
 //S_Player_Attack player_attack;
-Portal portal;
-Speed_item speed_item;
+
 HWND hWnd;
 Skeleton skel;
 Skeleton* p_skel = new Skeleton();
 
-// ball bitmap
-void attack_bitmap(HDC hdc)
-{
-	TransparentBlt(hdc, p->x, p->y, 11, 10, bitmap_dc9, 0, 0, 11, 10, RGB(255, 0, 255));
-}
 
 HDC hdc;
 // Player 공격 
@@ -198,60 +133,12 @@ DWORD WINAPI D_Player_Attack(LPVOID param)
 	{
 		// Thread 잠시멈춤
 		Sleep(50);
-		attack_bitmap(hdc);
-		p->y += dy * 50.f;
-		p->x += dx * 50.f;
-
-		// 이게 문제다
-		if (p->y > 270)
-		{
-			if (p->x < skel.x - skel.width / 2 && p->x > skel.x - 20)
-			{
-				is_hp_skel_decrease = true;
-			}
-		}
-		if (p->y > 270)
-		{
-			if (p->x > skel.x - skel.width / 2 && p->x < skel.x - skel.width / 2 + 36)
-			{
-				is_hp_skel_decrease = true;
-			}
-		}
 
 		// 화면 무효화
 		InvalidateRect(hWnd, NULL, false);
 	}
 	return 0;
 }
-
-//DWORD WINAPI skeleton_auto_move(LPVOID param)
-//{
-//    while (true)
-//    {
-//		// Thread 잠시 멈춤
-//        Sleep(100);
-//		
-//		// 스켈레톤의 이동 영역제한
-//		//clamp(p_skel->x, 200, 600);
-//
-//		// 왼쪽이동 조건문
-//		if (p_skel->x > skel_limit.left_limit)
-//		{
-//			p_skel->x -= 10;
-//		}
-//
-//		// 오른 쪽 이동 조건문
-//		if (p_skel->x < skel_limit.right_limit)
-//		{
-//			p_skel->x += 10;
-//		}
-//
-//		InvalidateRect(hWnd, NULL, false);
-//
-//    }
-//	return 0;
-//}
-
 
 // 중력 Thread
 DWORD WINAPI gravity(LPVOID param)
@@ -279,15 +166,10 @@ DWORD WINAPI gravity(LPVOID param)
 	}
 	return 0;
 }
-void move_p()
-{
-	p->x = s_player.x - s_player.width / 2;
-	p->y = s_player.y - s_player.height / 2;
-}
+
 
 void player_move(WPARAM wParam)
 {
-
 	switch (wParam)
 	{
 		// 플레이어 이동시 총알의 좌표도 같이 이동할 수 있도록
@@ -296,8 +178,6 @@ void player_move(WPARAM wParam)
 		{
 			break;
 		}
-		move_p();
-
 		s_player.x -= 5;
 		s_player.x -= s_player.plus_speed;
 		break;
@@ -306,7 +186,6 @@ void player_move(WPARAM wParam)
 		{
 			break;
 		}
-		move_p();
 		s_player.x += 5;
 		s_player.x += s_player.plus_speed;
 		break;
@@ -315,7 +194,6 @@ void player_move(WPARAM wParam)
 		{
 			break;
 		}
-		move_p();
 		// 점프 기회 다 쓰면, 더 이상 점프를 하지 못하도록 하는 조건 문이다.
 		if (g_jump_limit >= 2) { break; }
 		g_jump_limit++;
@@ -326,7 +204,6 @@ void player_move(WPARAM wParam)
 		{
 			break;
 		}
-		move_p();
 		s_player.y += 10;
 		break;
 	}
@@ -393,10 +270,6 @@ void is_crash()
 		if (p_player->hp <= 0)
 		{
 			p_player->lifes -= 1;
-
-			// 총알 위치 재 지정
-			p->x = s_player.x - s_player.width / 2;
-			p->y = s_player.y - s_player.height / 2;
 
 			// 플레이어 위치 재 지정
 			s_player.x = 16;
@@ -577,7 +450,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_CREATE:
 	{
 		// Player x,y / Size
-		s_player.x = 400;
+		s_player.x = 300;
 		s_player.y = 336;
 		s_player.width = 30;
 		s_player.height = 30;
@@ -657,34 +530,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		{
 			player_move(wParam);
 		}
-		// 플레이어가 스켈레톤을 지나치면 hp 감소 적용 X
-		if (skel.x - skel.width / 2 + 25 > s_player.x + s_player.width / 2)
-		{
-			is_hp_decrease = false;
-		}
+
+		// Player 앞 쪽 충돌 판정 코드 구현 해야 함.
+		
 		Player_Area_Limit(); // 플레이어 영역 제한
-		is_crash();
+		is_crash(); // 충돌 여부 체크
 
-
-
-		// 공이 skeleton을 지나피면, hp 감소 적용 X
-
-
-		// 라이프 - Retry Chance
-		// 포션 존재 함 - 상점에서 구매 가능 - int lifes = 3; - if(lifes == 0) { is_real_death = true };
-		// 충돌 조건 충족
-		if (s_player.x - s_player.width / 2 > skel.x - skel.width / 2 - 28)
-		{
-			// 플레이어가 스켈레톤을 지나치면 hp 감소 적용 X
-			if (skel.x - skel.width / 2 + 68 < s_player.x + s_player.width / 2 - 30)
-			{
-				is_hp_decrease = false;
-				break;
-			}
-			is_hp_decrease = true;
-		}
-
-		// 더블 버퍼링이라면 FALSE
 		InvalidateRect(hWnd, NULL, FALSE);
 	}
 	break;
@@ -705,48 +556,37 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		WCHAR ball[128];
 
 		wsprintf(speed, L"player speed = %d", s_player.plus_speed);
-		wsprintf(ball, L"ball x = %d | ball y = %d", p->x, p->y);
 		wsprintf(player_hp, L"player_hp = %d", p_player->hp);
-
-		/*WCHAR player[128];
-		WCHAR ground[128];
-
-		wsprintf(player, L"[ player.x = %d player.y = %d ]\n[ player.width = %d player.height  = %d ]", player.x - player.width / 2, player.y - player.height / 2, player.x + player.width / 2, player.y + player.height / 2);
-		wsprintf(ground, L"[ ground.x = %d / ground.y = %d /  ground.width = %d / ground.height  = %d ]", ground.x, ground.y, ground.width, ground.height);*/
 
 		/******** Bitmap ********/
 
-		// b1.bmp
+		// Background Bitmap
 		bitmap1 = (HBITMAP)LoadImage(NULL, L"b1.bmp", IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE | LR_CREATEDIBSECTION);
 		bitmap_dc1 = CreateCompatibleDC(hdc);
 		HBITMAP old_bitmap_1 = (HBITMAP)SelectObject(bitmap_dc1, bitmap1);
 		DeleteObject(old_bitmap_1);
 
-		// b2.bmp
 		bitmap2 = (HBITMAP)LoadImage(NULL, L"b2.bmp", IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE | LR_CREATEDIBSECTION);
 		bitmap_dc2 = CreateCompatibleDC(hdc);
 		HBITMAP old_bitmap_2 = (HBITMAP)SelectObject(bitmap_dc2, bitmap2);
 		DeleteObject(old_bitmap_2);
 
-		// b3.bmp
 		bitmap3 = (HBITMAP)LoadImage(NULL, L"b3.bmp", IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE | LR_CREATEDIBSECTION);
 		bitmap_dc3 = CreateCompatibleDC(hdc);
 		HBITMAP old_bitmap_3 = (HBITMAP)SelectObject(bitmap_dc3, bitmap3);
 		DeleteObject(old_bitmap_3);
 
-		// b4.bmp
 		bitmap4 = (HBITMAP)LoadImage(NULL, L"b4.bmp", IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE | LR_CREATEDIBSECTION);
 		bitmap_dc4 = CreateCompatibleDC(hdc);
 		HBITMAP old_bitmap_4 = (HBITMAP)SelectObject(bitmap_dc4, bitmap4);
 		DeleteObject(old_bitmap_4);
 
-		// b5.bmp
 		bitmap5 = (HBITMAP)LoadImage(NULL, L"b5.bmp", IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE | LR_CREATEDIBSECTION);
 		bitmap_dc5 = CreateCompatibleDC(hdc);
 		HBITMAP old_bitmap_5 = (HBITMAP)SelectObject(bitmap_dc5, bitmap5);
 		DeleteObject(old_bitmap_5);
 
-		// basic_standing.bmp - 6
+		// Player = basic_standing.bmp - 6
 		bitmap6 = (HBITMAP)LoadImage(NULL, L"basic_standing.bmp", IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE | LR_CREATEDIBSECTION);
 		bitmap_dc6 = CreateCompatibleDC(hdc);
 		HBITMAP old_bitmap_6 = (HBITMAP)SelectObject(bitmap_dc6, bitmap6);
@@ -765,7 +605,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		DeleteObject(old_bitmap_8);
 
 		// attack.bmp - 9
-		bitmap9 = (HBITMAP)LoadImage(NULL, L"attack.bmp", IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE | LR_CREATEDIBSECTION);
+		bitmap9 = (HBITMAP)LoadImage(NULL, L"bullet.bmp", IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE | LR_CREATEDIBSECTION);
 		bitmap_dc9 = CreateCompatibleDC(hdc);
 		HBITMAP old_bitmap_9 = (HBITMAP)SelectObject(bitmap_dc9, bitmap9);
 		DeleteObject(old_bitmap_9);
@@ -775,58 +615,37 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		GetObject(bitmap6, sizeof(BITMAP), &bitmap_info2); // Player
 		GetObject(bitmap7, sizeof(BITMAP), &Speed_item_info); // Speed_item
 		GetObject(bitmap8, sizeof(BITMAP), &skeleton_info); // Skeleton
-		GetObject(bitmap9, sizeof(BITMAP), &attack_info); // Attack
+		GetObject(bitmap9, sizeof(BITMAP), &bullet_info); // Attack
 
-		// Background 비트맵의 가로 사이즈
+		// Background 비트맵의 가로,세로 사이즈
 		LONG width = bitmap_info.bmWidth;
-
-		// Background 비트맵의 세로 사이즈 
 		LONG height = bitmap_info.bmHeight;
 
-		// Player 비트맵의 가로 사이즈
+		// Player 비트맵의 가로, 세로 사이즈
 		LONG player_width = bitmap_info2.bmWidth;
-
-		// Player 비트맵의 세로 사이즈 
 		LONG player_height = bitmap_info2.bmHeight;
 
-		// Speed_item 비트맵의 가로 사이즈
+		// Speed_item 비트맵의 가로, 세로 사이즈
 		LONG Speed_item_width = Speed_item_info.bmWidth;
-
-		// Speed_item 비트맵의 세로 사이즈 
 		LONG Speed_item_height = Speed_item_info.bmHeight;
 
-		// Skeleton 비트맵의 가로 사이즈
+		// Skeleton 비트맵의 가로, 세로 사이즈
 		LONG skel_width = skeleton_info.bmWidth;
-
-		// Skeleton 비트맵의 세로 사이즈 
 		LONG skel_height = skeleton_info.bmHeight;
 
-		// attack 비트맵의 가로 사이즈
-		LONG attack_width = attack_info.bmWidth;
-
-		// attack 비트맵의 세로 사이즈 
-		LONG attack_height = attack_info.bmHeight;
+		// attack 비트맵의 가로, 세로 사이즈
+		LONG bullet_width = bullet_info.bmWidth;
+		LONG bullet_height = bullet_info.bmHeight;
 
 		if (g_press == true)
 		{
-			// 이 쓰레드가 항상 돌게 하고 싶은데 while (true) 쓰레드에다가 적용 했구요
-			// WM_Paint에서 설정 하는 거 아닌가요
-			// WM_PAINT 호출 될때 마다 쓰레드 무한 생성 버그
-
 			// 바닥의 y 좌표보다 player의 y 좌표가 더 높을 때 Thread 실행
 			if (floors.y > s_player.y + s_player.height / 2)
 			{
 				CreateThread(NULL, 0, gravity, hWnd, 0, NULL);
 			}
 
-			// 순서대로 화면에다가 그린다 - 겹친다.
 			Rectangle(hdc, ground.x, ground.y, ground.width, ground.height);
-
-			// TransparentBlt Explain
-			// RGB : 255, 0, 255 인 색을 제거함
-			// hdc에다가 bitmap_dc에 그려진 비트맵을 그림
-			// 편의성을 위해 중심을 기준으로 이동
-			// HDC, x 좌표, y 좌표, 가로 크기, 세로 크기, 메모리 DC, 비트맵 내 x 좌표, y 좌표, 비트맵 내 가로 크기, 세로 크기, 제거할 배경의 색
 
 			// Background Bitmap
 			TransparentBlt(hdc, 0, 0, 700, 400, bitmap_dc1, 0, 0, width, height, RGB(255, 0, 255));
@@ -840,23 +659,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			{
 				TransparentBlt(hdc, skel.x - skel.width / 2, skel.y - skel.height / 2 + 19, skel_width + 18, skel_height + 15, bitmap_dc8, 0, 0, skel_width, skel_height, RGB(255, 0, 255));
 			}
-			if (p_skel->is_death == true)
-			{
-				skel.x = 0;
-				skel.y = 0;
-				skel.width = 0;
-				skel.height = 0;
-			}
 
-			// Player Bitmap, attack bitmap
+			// Player Bitmap
 			if (p_player->is_death == false)
 			{
 				TransparentBlt(hdc, s_player.x - s_player.width / 2 - 22, s_player.y - s_player.height / 2 - 32, player_width + 30, player_height + 25, bitmap_dc6, 0, 0, player_width, player_height, RGB(255, 0, 255));
 			}
-			TransparentBlt(hdc, p->x, p->y, attack_width, attack_height, bitmap_dc9, 0, 0, attack_width, attack_height, RGB(255, 0, 255));
-
-			//attack_bitmap(hdc, s_player, attack_width + 30, attack_height + 30);
-
 
 			// 아이템이 Player와 충돌 할 경우 그리지 않는다.
 			if (is_item_die == false)
@@ -866,22 +674,22 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				InvalidateRect(hWnd, NULL, false);
 			}
 
-			// Floors, HP_BAR, Portal Rectangle - Bitmap 으로 전환 예정
+			// Floors
 			Rectangle(hdc, floors.x, floors.y, floors.width, floors.y + floors.height);
 
-
-			// Player HP Fix bar
+			// Player HP Fix bar - White bar
 			if (p_player->is_death == false)
 			{
 				Rectangle(hdc, s_player.x - 45, s_player.y + 18, s_player.x + 45, s_player.y + 23); // Player - hp_bar
 			}
 
-			// Skeleton HP Fix Bar
+			// Skeleton HP Fix bar - White bar
 			if (p_skel->is_death == false)
 			{
 				Rectangle(hdc, skel.x - 20, skel.y + 85, skel.x + 80, skel.y + 90); // Skeleton - hp_bar
 			}
 
+			// portal
 			Rectangle(hdc, portal.x, portal.y, portal.x + portal.width, portal.y + portal.height);
 
 			// hp_bar config - skeletom, Player
@@ -901,21 +709,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			DeleteObject(my_b);
 
 			TextOut(hdc, 10, 10, speed, wcslen(speed));
-			TextOut(hdc, 10, 30, ball, wcslen(ball));
-
-			//TextOut(hdc, 10, 30, player_hp, wcslen(player_hp));
-
-			// 공격이 나가는 좌표 : s_player.x - s_player.width / 2 + 30, s_player.y + s_player.height / 2 - 30
-
-			// 공격 구현 하는데 필요한 거
-
-			// 조준점 시험 Textout
-			//TextOut(hdc, s_player.x - s_player.width / 2 + 30, s_player.y + s_player.height / 2 - 30, L"3", lstrlen(L"3"));
-			//TextOut(hdc, 10, 30, player_hp, wcslen(player_hp));
-
-			//TextOut(hdc, 10, 10, player, wcslen(player));
-			//TextOut(hdc, 10, 30, ground, wcslen(ground));
-
 		}
 
 		BitBlt(memDC, 0, 0, resolution.x, resolution.y, hdc, 0, 0, SRCCOPY);
@@ -937,8 +730,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		DeleteObject(bitmap7);
 		DeleteDC(bitmap_dc8);
 		DeleteObject(bitmap8);
-		DeleteDC(bitmap_dc9);
-		DeleteObject(bitmap9);
 
 		DeleteDC(hdc);
 		DeleteDC(memDC);
@@ -947,39 +738,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	}
 	break;
 
+	// 쓰레드 생성
 	case WM_LBUTTONDOWN:
 	{
-		int mouse_x, mouse_y;
 
-		mouse_x = LOWORD(lParam);
-		mouse_y = HIWORD(lParam);
-
-		// p - 공격이 날아가는 방향
-		// 식 - 역 탄젠트의 세터 값 = atan2(dy, dx); 
-
-		dx = mouse_x - s_player.x; // Vx의 값을 구하기 
-		dy = mouse_y - s_player.y; // Vy의 값을 구하기
-
-		float m = sqrt(pow(dx, 2) + pow(dy, 2));
-
-		if (m > 0)
-		{
-			// 정규화 - 그대로 값을 넣으면 700x400 화면에 나타나지 않기 때문에 정규화를 시킨다.
-			dx /= m;
-			dy /= m;
-		}
-
-		// 쓰레드 실행
-		handle = CreateThread(NULL, 0, D_Player_Attack, hWnd, 0, NULL);
-	}
-	break;
-	case WM_LBUTTONUP:
-	{
-		is_thread = false;
-		// 쓰레드 일시정지
-		p->max_range = 0;
-
-		SuspendThread(handle);
 	}
 	break;
 
