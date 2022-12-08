@@ -182,7 +182,7 @@ HWND hWnd;
 Skeleton skel;
 Skeleton* p_skel = new Skeleton();
 
-// attack bitmap
+// ball bitmap
 void attack_bitmap(HDC hdc)
 {
 	TransparentBlt(hdc, p->x, p->y, 11, 10, bitmap_dc9, 0, 0, 11, 10, RGB(255, 0, 255));
@@ -201,21 +201,22 @@ DWORD WINAPI D_Player_Attack(LPVOID param)
 		attack_bitmap(hdc);
 		p->y += dy * 50.f;
 		p->x += dx * 50.f;
-		if (p->y > 270)
-		{
-			if (s_player.x - s_player.width / 2 < skel.x - skel.width / 2 && p->x > skel.x - 20)
-			{
-				is_hp_skel_decrease = true;
-			}
-		}
-		if (p->y > 270)
-		{
-			if (s_player.x - s_player.width / 2 > skel.x - skel.width / 2 && p->x < skel.x - skel.width / 2 + 36)
-			{
-				is_hp_skel_decrease = true;
-			}
-		}
 
+		// 이게 문제다
+		if (p->y > 270)
+		{
+			if (p->x < skel.x - skel.width / 2 && p->x > skel.x - 20)
+			{
+				is_hp_skel_decrease = true;
+			}
+		}
+		if (p->y > 270)
+		{
+			if (p->x > skel.x - skel.width / 2 && p->x < skel.x - skel.width / 2 + 36)
+			{
+				is_hp_skel_decrease = true;
+			}
+		}
 
 		// 화면 무효화
 		InvalidateRect(hWnd, NULL, false);
@@ -223,33 +224,33 @@ DWORD WINAPI D_Player_Attack(LPVOID param)
 	return 0;
 }
 
-DWORD WINAPI skeleton_auto_move(LPVOID param)
-{
-    while (true)
-    {
-		// Thread 잠시 멈춤
-        Sleep(100);
-		
-		// 스켈레톤의 이동 영역제한
-		//clamp(p_skel->x, 200, 600);
-
-		// 왼쪽이동 조건문
-		if (p_skel->x > skel_limit.left_limit)
-		{
-			p_skel->x -= 10;
-		}
-
-		// 오른 쪽 이동 조건문
-		if (p_skel->x < skel_limit.right_limit)
-		{
-			p_skel->x += 10;
-		}
-
-		InvalidateRect(hWnd, NULL, false);
-
-    }
-	return 0;
-}
+//DWORD WINAPI skeleton_auto_move(LPVOID param)
+//{
+//    while (true)
+//    {
+//		// Thread 잠시 멈춤
+//        Sleep(100);
+//		
+//		// 스켈레톤의 이동 영역제한
+//		//clamp(p_skel->x, 200, 600);
+//
+//		// 왼쪽이동 조건문
+//		if (p_skel->x > skel_limit.left_limit)
+//		{
+//			p_skel->x -= 10;
+//		}
+//
+//		// 오른 쪽 이동 조건문
+//		if (p_skel->x < skel_limit.right_limit)
+//		{
+//			p_skel->x += 10;
+//		}
+//
+//		InvalidateRect(hWnd, NULL, false);
+//
+//    }
+//	return 0;
+//}
 
 
 // 중력 Thread
@@ -333,9 +334,14 @@ void player_move(WPARAM wParam)
 
 void is_crash()
 {
+	// 플레이어가 충돌 여부 체크
 	if (s_player.x - s_player.width / 2 > skel.x - skel.width / 2 || s_player.x - s_player.width / 2 - 55 < skel.x - skel.width / 2)
 	{
+		// 부딪히지 않음.
 		is_no_crash = true;
+	}
+	else {
+		is_no_crash = false;
 	}
 
 	//  Speed_item
@@ -371,7 +377,7 @@ void is_crash()
 		}
 	}
 
-	if (is_hp_skel_decrease == true && is_no_crash == false)
+	if (is_hp_skel_decrease == true)
 	{
 		if (p_skel->hp <= 0)
 		{
@@ -379,8 +385,9 @@ void is_crash()
 		}
 		p_skel->hp -= 10;
 	}
+
 	// Skeleton - 부딪히면, hp 감소
-	if (is_hp_decrease == true)
+	if (is_hp_decrease == true && is_no_crash == true)
 	{
 		// HP가 0 보다 적으면
 		if (p_player->hp <= 0)
@@ -414,39 +421,25 @@ void is_crash()
 			MessageBox(hWnd, Game_over, L"게임종료", MB_OK);
 			exit(1);
 		}
-
 		// 위의 두 if문이 성립이 되지 않을 때 실행
 		p_player->hp -= 3;
 	}
 	InvalidateRect(hWnd, NULL, false);
-
-
-
-
-
-	// skeleton이 플레이어의 공격에 맞으면 피 감소
-				// s_player.x - s_player.width / 2 - 22 s_player.y - s_player.height / 2 - 32
-				// skel.x - skel.width / 2, skel.y - skel.height / 2 + 19
-	// s_player.x - s_player.width / 2 - 22 > skel.x - skel.width / 2
-
 }
 
 void Player_Area_Limit()
 {
 	// 플레이어가 그라운드를 못 벗어나게 하는 연산
-
 	// Left
 	if (ground.x > s_player.x - s_player.width / 2) // 이렇게 해주면 정확하게 사각형의 왼쪽 면의 좌표로 계산
 	{
 		s_player.x = 16;
 	}
-
 	// bottom
 	if (floors.y < s_player.y + s_player.height / 2)
 	{
 		s_player.y = 336;
 	}
-
 	// Right
 	if (ground.width < s_player.x + s_player.width / 2)
 	{
@@ -621,7 +614,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		speed_item.y = 270;
 		speed_item.width = -220;
 		speed_item.height = -220;
-		CreateThread(NULL, 0, skeleton_auto_move, hWnd, 0, NULL);
+		//CreateThread(NULL, 0, skeleton_auto_move, hWnd, 0, NULL);
 	}
 	break;
 	case WM_COMMAND:
@@ -845,7 +838,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			// Skeleton Bitmap
 			if (p_skel->is_death == false)
 			{
-				TransparentBlt(hdc, p_skel->x - p_skel->width / 2, p_skel->y - p_skel->height / 2 + 19, skel_width + 18, skel_height + 15, bitmap_dc8, 0, 0, skel_width, skel_height, RGB(255, 0, 255));
+				TransparentBlt(hdc, skel.x - skel.width / 2, skel.y - skel.height / 2 + 19, skel_width + 18, skel_height + 15, bitmap_dc8, 0, 0, skel_width, skel_height, RGB(255, 0, 255));
 			}
 			if (p_skel->is_death == true)
 			{
