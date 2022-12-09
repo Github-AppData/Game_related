@@ -162,12 +162,11 @@
     <Image Include="basic_standing.bmp" />
     <Image Include="bullet.bmp" />
     <Image Include="bitmap15.bmp" />
-    <Image Include="bitmap3.bmp" />
+    <Image Include="speed_item.bmp" />
     <Image Include="Bitmap_.ico" />
     <Image Include="fox_pet.bmp" />
     <Image Include="Skeleton1.bmp" />
     <Image Include="small.ico" />
-    <Image Include="Speed_item.bmp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

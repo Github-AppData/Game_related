@@ -66,10 +66,7 @@
     <Image Include="basic_standing.bmp">
       <Filter>리소스 파일</Filter>
     </Image>
-    <Image Include="bitmap3.bmp">
-      <Filter>리소스 파일</Filter>
-    </Image>
-    <Image Include="Speed_item.bmp">
+    <Image Include="speed_item.bmp">
       <Filter>리소스 파일</Filter>
     </Image>
     <Image Include="Skeleton1.bmp">

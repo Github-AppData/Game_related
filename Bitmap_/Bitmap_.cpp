@@ -21,7 +21,7 @@ HINSTANCE hInst;                                // 현재 인스턴스입니다.
 WCHAR szTitle[MAX_LOADSTRING];                  // 제목 표시줄 텍스트입니다.
 WCHAR szWindowClass[MAX_LOADSTRING];            // 기본 창 클래스 이름입니다.
 
-WCHAR Game_over[128] = { 0, };
+WCHAR Game_over[128];
 
 // 전역 선언부
 POINT resolution; // 해상도를 저장할 변수
@@ -31,6 +31,7 @@ BOOL g_press = false; // 스페이스 바 누름 여부 확인 - 게임 시작
 BOOL g_portal_crash = false; // 포탈 충돌 여부 확인
 BOOL g_Key_D = false; // 
 BOOL is_no_crash = false;
+BOOL is_no_skel_crash = false;
 
 HANDLE handle; // Thread 핸들
 BOOL is_item_die = false; // 아이템을 먹었는지 확인 유무
@@ -116,7 +117,6 @@ Player s_player;
 Player* p_player = new Player();
 vector<Player> v_player;
 
-
 // Vector iterator 선언
 vector<Player>::iterator iter = v_player.begin();
 
@@ -155,6 +155,8 @@ DWORD WINAPI D_Player_bullet(LPVOID param)
 		{
 			int ad = 0;
 			ground_is_crash = true;
+			bullet->x = s_player.x - s_player.width / 2 + 30;
+			bullet->y = s_player.y - s_player.height / 2;
 		}
 
 		float degree = sqrt(pow(dx, 2) + pow(dy, 2)); // 빗변길이
@@ -196,7 +198,6 @@ DWORD WINAPI D_Player_bullet(LPVOID param)
 		// 화면 무효화
 		InvalidateRect(hWnd, NULL, false);
 	}
-	int ad = 9;
 	ResumeThread(bullet_handle);
 	return 0;
 }
@@ -290,7 +291,6 @@ void is_crash()
 		{
 			is_item_die = true;
 		}
-
 	}
 
 	// Portal - 특정 조건을 충족하면 장소 이동하도록
@@ -300,6 +300,26 @@ void is_crash()
 		{
 			g_press = false;
 			g_portal_crash = true;
+		}
+	}
+
+	if (is_hp_skel_decrease == true && is_no_skel_crash == false)
+	{
+		if (p_skel->hp <= 0)
+		{
+			p_skel->is_death = true;
+
+			// memory clear
+			skel.x = 0;
+			skel.y = 0;
+			skel.width = 0;
+			skel.height = 0;
+		}
+		else 
+		{
+			p_skel->hp -= 20;
+			is_hp_skel_decrease = false;
+			is_no_skel_crash = true;
 		}
 	}
 
@@ -660,8 +680,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		HBITMAP old_bitmap_6 = (HBITMAP)SelectObject(bitmap_dc6, bitmap6);
 		DeleteObject(old_bitmap_6);
 
-		// Speed_item.bmp - 7
-		bitmap7 = (HBITMAP)LoadImage(NULL, L"bitmap3.bmp", IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE | LR_CREATEDIBSECTION);
+		// speed_item.bmp - 7
+		bitmap7 = (HBITMAP)LoadImage(NULL, L"speed_item.bmp", IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE | LR_CREATEDIBSECTION);
 		bitmap_dc7 = CreateCompatibleDC(hdc);
 		HBITMAP old_bitmap_7 = (HBITMAP)SelectObject(bitmap_dc7, bitmap7);
 		DeleteObject(old_bitmap_7);
@@ -707,7 +727,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 		if (g_press == true)
 		{
-
 			// 바닥의 y 좌표보다 player의 y 좌표가 더 높을 때 Thread 실행
 			if (floors.y > s_player.y + s_player.height / 2)
 			{
@@ -739,7 +758,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			if (is_item_die == false)
 			{
 				// Speed_item Bitmap
-				TransparentBlt(hdc, speed_item.x, speed_item.y, Speed_item_width + 30, Speed_item_height + 30, bitmap_dc7, 0, 0, Speed_item_width, Speed_item_height, RGB(255, 255, 255));
+				TransparentBlt(hdc, speed_item.x, speed_item.y, Speed_item_width + 30, Speed_item_height + 30, bitmap_dc7, 0, 0, Speed_item_width, Speed_item_height, RGB(255, 0, 255));
 				InvalidateRect(hWnd, NULL, false);
 			}
 
