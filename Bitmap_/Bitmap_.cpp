@@ -38,6 +38,9 @@ int g_jump_limit = 0; // 점프 제한
 int speed_plus = 0; // 
 BOOL is_hp_decrease = false; // hp 감소
 BOOL is_hp_skel_decrease = false; // skeleton hp 감소
+int dx, dy;
+int mouse_x, mouse_y;
+BOOL ground_is_crash = false;
 
 // HP 브러시 자료형 선언
 HBRUSH os_b, my_b;
@@ -60,16 +63,17 @@ struct skeleton_area_limit
 	int left_limit = 200;
 	int right_limit = 600;
 };
+
 struct Player
 {
 	int x = 0;
 	int y = 0;
 	int width = 0;
 	int height = 0;
-	BOOL is_death = false; // 완전히 죽는 것
 	int lifes = 3; // 라이프 수를 의미한다.
 	int hp = 100;
 	int plus_speed = 0;
+	BOOL is_death = false; // 완전히 죽는 것
 };
 
 // 1. 공격 비트맵 (작은 원) / 2. 공격이 나갈 수 있는 Thread / 3. Thread - Sleep (연사 방지)
@@ -88,6 +92,14 @@ struct Skeleton
 	BOOL is_death = false;
 };
 
+struct Bullet
+{
+	float x = 0;
+	float y = 0;
+	int damage = 10;
+	BOOL is_crash = false; // 충돌 여부확인
+};
+
 struct Object
 {
 	int x = 0;
@@ -96,7 +108,6 @@ struct Object
 	int height = 0;
 };
 
-skeleton_area_limit skel_limit;
 
 /* ---- The End Struct ---- */
 
@@ -105,38 +116,88 @@ Player s_player;
 Player* p_player = new Player();
 vector<Player> v_player;
 
+
 // Vector iterator 선언
 vector<Player>::iterator iter = v_player.begin();
-int a, b;
 
-// struct 선언
-// Ground Floor Portal Speed_item
+// struct 객체 선언
+HDC hdc;
+HWND hWnd;
 Object ground;
 Object floors;
-Object portal;
+Object portal; // 포탈
 Object speed_item;
-
-//S_Player_Attack player_attack;
-
-HWND hWnd;
-Skeleton skel;
+Skeleton skel; // skeleton
 Skeleton* p_skel = new Skeleton();
+DWORD thread_id_Player_bullet; // Thread id 선언
+skeleton_area_limit skel_limit; // skeleton 이동 영역제한
+Bullet* bullet = new Bullet(); // 총알
+HANDLE bullet_handle;
 
+// attack bitmap
+void Player_bullet(HDC hdc)
+{
+	TransparentBlt(hdc, bullet->x, bullet->y, 11, 10, bitmap_dc9, 0, 0, 11, 10, RGB(255, 0, 255));
+}
 
-HDC hdc;
 // Player 공격 
-DWORD WINAPI D_Player_Attack(LPVOID param)
+DWORD WINAPI D_Player_bullet(LPVOID param)
 {
 	// 쓰레드가 발동되면 무한루프
 	hdc = GetDC(hWnd);
 	while (true)
 	{
 		// Thread 잠시멈춤
-		Sleep(50);
+		Sleep(100);
 
+		// 오른쪽 충돌 구현
+		if ((int)bullet->x + 20 > ground.width)
+		{
+			int ad = 0;
+			ground_is_crash = true;
+		}
+
+		float degree = sqrt(pow(dx, 2) + pow(dy, 2)); // 빗변길이
+
+		// 이동 - 미 완성 (속도와 방향 구해야 한다.)
+		bullet->x += 10.f * (dx / degree);
+		bullet->y += 10.f * (dy / degree);
+
+		// bullet이 mouse_x 까지 가면, skeleton에 충돌 하면 Thread 종료
+		// 사정거리 => bullet->x - 57
+		if (bullet->is_crash == true || ground_is_crash == true)
+		{
+			// Thread end
+			SuspendThread(bullet_handle);
+		}
+
+		// 충돌 판정 
+		if (bullet->y > 270)
+		{
+			// 왼쪽 충돌 판정 - Complete
+			// 1. Player가 Skeleton의 왼쪽에 있으면서, 2. bullet의 x가 skeleton의 x보다 클 경우 조건을 충족한다.
+			if (s_player.x - s_player.width / 2 < skel.x - skel.width / 2 && bullet->x > skel.x - skel.width / 2)
+			{
+				// 조건 충족
+				bullet->is_crash = true;
+				is_hp_skel_decrease = true;
+			}
+
+			// 오른쪽 충돌 판정 - Complete
+			// 1. Player가 Skeleton의 오른쪽에 있으면서, 2. bullet의 x가 skeleton의 x보다 작을 경우 조건을 충족한다.
+			if (s_player.x - s_player.width / 2 > skel.x - skel.width / 2 && bullet->x < skel.x - skel.width / 2 + 60)
+			{
+				// 조건 충족
+				bullet->is_crash = true;
+				is_hp_skel_decrease = true;
+			}
+		}
+		
 		// 화면 무효화
 		InvalidateRect(hWnd, NULL, false);
 	}
+	int ad = 9;
+	ResumeThread(bullet_handle);
 	return 0;
 }
 
@@ -164,9 +225,9 @@ DWORD WINAPI gravity(LPVOID param)
 		// 화면 무효화
 		InvalidateRect(hWnd, NULL, false);
 	}
+
 	return 0;
 }
-
 
 void player_move(WPARAM wParam)
 {
@@ -211,16 +272,6 @@ void player_move(WPARAM wParam)
 
 void is_crash()
 {
-	// 플레이어가 충돌 여부 체크
-	if (s_player.x - s_player.width / 2 > skel.x - skel.width / 2 || s_player.x - s_player.width / 2 - 55 < skel.x - skel.width / 2)
-	{
-		// 부딪히지 않음.
-		is_no_crash = true;
-	}
-	else {
-		is_no_crash = false;
-	}
-
 	//  Speed_item
 	if (speed_item.x + 7 < s_player.x + s_player.width / 2)
 	{
@@ -240,8 +291,6 @@ void is_crash()
 			is_item_die = true;
 		}
 
-		// 화면 무효화
-		InvalidateRect(hWnd, NULL, false);
 	}
 
 	// Portal - 특정 조건을 충족하면 장소 이동하도록
@@ -254,19 +303,17 @@ void is_crash()
 		}
 	}
 
-	if (is_hp_skel_decrease == true)
+	// 라이프를 다 소모하면, 게임 종료
+	if (p_player->lifes == 0)
 	{
-		if (p_skel->hp <= 0)
-		{
-			p_skel->is_death = true;
-		}
-		p_skel->hp -= 10;
+		p_player->is_death = true;
+		MessageBox(hWnd, Game_over, L"게임종료", MB_OK);
+		InvalidateRect(hWnd, NULL, false);
+		exit(1);
 	}
 
-	// Skeleton - 부딪히면, hp 감소
-	if (is_hp_decrease == true && is_no_crash == true)
+	if (is_hp_decrease == true && is_no_crash == false)
 	{
-		// HP가 0 보다 적으면
 		if (p_player->hp <= 0)
 		{
 			p_player->lifes -= 1;
@@ -283,18 +330,11 @@ void is_crash()
 			// 플레이어의 HP 재 지정
 			p_player->hp = 100 + 3;
 			s_player.plus_speed = 0;
-		}
 
-		wsprintf(Game_over, L"라이프를 다 소모하셨습니다.");
-
-		// 라이프를 다 소모하면, 게임 종료
-		if (p_player->lifes == 0)
-		{
-			p_player->is_death = true;
-			MessageBox(hWnd, Game_over, L"게임종료", MB_OK);
-			exit(1);
+			// 원 상태 복귀
+			is_hp_decrease = false;
+			is_no_crash = true;
 		}
-		// 위의 두 if문이 성립이 되지 않을 때 실행
 		p_player->hp -= 3;
 	}
 	InvalidateRect(hWnd, NULL, false);
@@ -439,10 +479,6 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 //  WM_PAINT    - 주 창을 그립니다.
 //  WM_DESTROY  - 종료 메시지를 게시하고 반환합니다.
 //
-//
-
-
-
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	switch (message)
@@ -450,7 +486,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_CREATE:
 	{
 		// Player x,y / Size
-		s_player.x = 300;
+		s_player.x = 50;
 		s_player.y = 336;
 		s_player.width = 30;
 		s_player.height = 30;
@@ -462,7 +498,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		skel.width = 30;
 		skel.height = 30;
 		skel.damage = 10;
-
 
 		// Ground x,y / Size
 		ground.x = 0;
@@ -487,7 +522,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		speed_item.y = 270;
 		speed_item.width = -220;
 		speed_item.height = -220;
-		//CreateThread(NULL, 0, skeleton_auto_move, hWnd, 0, NULL);
 	}
 	break;
 	case WM_COMMAND:
@@ -531,8 +565,40 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			player_move(wParam);
 		}
 
-		// Player 앞 쪽 충돌 판정 코드 구현 해야 함.
-		
+		// Player와 Skeleton에 충돌 여부 check - 앞쪽
+		if (s_player.x - s_player.width / 2 + 20 > skel.x - skel.width / 2)
+		{
+			// Player와 Skeleton이 부딪혔다.
+			is_hp_decrease = true;
+			if (s_player.x - s_player.width / 2 > skel.x - skel.width / 2 + 70)
+			{
+				// Player가 Skeleton을 지나쳤다.
+				is_no_crash = true;
+			}
+			else
+			{
+				// 아니면 부딪힌 것 이다.
+				is_no_crash = false;
+			}
+		}
+
+		// Player와 Skeleton에 충돌 여부 check - 뒤쪽
+		if (s_player.x - s_player.width / 2 < skel.x - skel.width / 2 + 65)
+		{
+			// Player와 Skeleton이 부딪혔다.
+			is_hp_decrease = true;
+			if (s_player.x - s_player.width / 2 < skel.x - skel.width / 2 - 28)
+			{
+				// Player가 Skeleton을 지나쳤다.
+				is_no_crash = true;
+			}
+			else
+			{
+				// 아니면 부딪힌 것 이다.
+				is_no_crash = false;
+			}
+		}
+
 		Player_Area_Limit(); // 플레이어 영역 제한
 		is_crash(); // 충돌 여부 체크
 
@@ -554,9 +620,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		WCHAR speed[128];
 		WCHAR player_hp[128];
 		WCHAR ball[128];
+		WCHAR buf[128];
 
 		wsprintf(speed, L"player speed = %d", s_player.plus_speed);
 		wsprintf(player_hp, L"player_hp = %d", p_player->hp);
+		wsprintf(buf, L"bullet->x = %d", (int)bullet->x);
 
 		/******** Bitmap ********/
 
@@ -639,13 +707,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 		if (g_press == true)
 		{
+
 			// 바닥의 y 좌표보다 player의 y 좌표가 더 높을 때 Thread 실행
 			if (floors.y > s_player.y + s_player.height / 2)
 			{
 				CreateThread(NULL, 0, gravity, hWnd, 0, NULL);
 			}
 
-			Rectangle(hdc, ground.x, ground.y, ground.width, ground.height);
+			//Rectangle(hdc, ground.x, ground.y, ground.width, ground.height);
 
 			// Background Bitmap
 			TransparentBlt(hdc, 0, 0, 700, 400, bitmap_dc1, 0, 0, width, height, RGB(255, 0, 255));
@@ -677,13 +746,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			// Floors
 			Rectangle(hdc, floors.x, floors.y, floors.width, floors.y + floors.height);
 
-			// Player HP Fix bar - White bar
+			// Fix Hp_Bar config - Player
 			if (p_player->is_death == false)
 			{
 				Rectangle(hdc, s_player.x - 45, s_player.y + 18, s_player.x + 45, s_player.y + 23); // Player - hp_bar
 			}
 
-			// Skeleton HP Fix bar - White bar
+			// Fix Hp_Bar config - Skeleton
 			if (p_skel->is_death == false)
 			{
 				Rectangle(hdc, skel.x - 20, skel.y + 85, skel.x + 80, skel.y + 90); // Skeleton - hp_bar
@@ -692,7 +761,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			// portal
 			Rectangle(hdc, portal.x, portal.y, portal.x + portal.width, portal.y + portal.height);
 
-			// hp_bar config - skeletom, Player
+			// Flow Hp_Bar config - skeletom, Player
 			my_b = CreateSolidBrush(RGB(255, 0, 0));
 			os_b = (HBRUSH)SelectObject(hdc, my_b);
 			DeleteObject(os_b);
@@ -708,7 +777,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			}
 			DeleteObject(my_b);
 
-			TextOut(hdc, 10, 10, speed, wcslen(speed));
+			Player_bullet(hdc);
+
+			TextOut(hdc, 10, 10, buf, wcslen(buf));
+
+			//TextOut(hdc, 10, 10, speed, wcslen(speed));
+			//TextOut(hdc, skel.x - skel.width / 2, 330, L"  ", lstrlen(L"  "));
+			//TextOut(hdc, s_player.x - s_player.width / 2 + 30, 330, L"  ", lstrlen(L"  "));
 		}
 
 		BitBlt(memDC, 0, 0, resolution.x, resolution.y, hdc, 0, 0, SRCCOPY);
@@ -730,6 +805,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		DeleteObject(bitmap7);
 		DeleteDC(bitmap_dc8);
 		DeleteObject(bitmap8);
+		DeleteDC(bitmap_dc9);
+		DeleteObject(bitmap9);
 
 		DeleteDC(hdc);
 		DeleteDC(memDC);
@@ -738,10 +815,21 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	}
 	break;
 
-	// 쓰레드 생성
 	case WM_LBUTTONDOWN:
 	{
+		mouse_x = LOWORD(lParam);
+		mouse_y = HIWORD(lParam);
 
+		// Thread 종료 코드는 Thread 내부에 있다.
+		bullet->x = s_player.x - s_player.width / 2 + 30;
+		bullet->y = s_player.y - s_player.height / 2;
+
+		// 클릭할 때마다 달라지는 mouse 좌표와 Player 좌표를 구해서 dx, dy 값을 적용
+		dx = mouse_x - (s_player.x - s_player.width / 2 + 30); // 삼각 밑변 길이
+		dy = mouse_y - (s_player.y - s_player.height / 2); // 삼각높이
+		
+		// 쓰레드 생성
+		bullet_handle = CreateThread(NULL, 0, D_Player_bullet, hWnd, 0, &thread_id_Player_bullet);
 	}
 	break;
 
