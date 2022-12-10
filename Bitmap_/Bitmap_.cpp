@@ -14,7 +14,6 @@
 #include <algorithm>
 
 #define MAX_LOADSTRING 100
-using namespace std;
 
 // 전역 변수:
 HINSTANCE hInst;                                // 현재 인스턴스입니다.
@@ -91,6 +90,11 @@ struct Skeleton
 	int hp = 100;
 	int damage = 20;
 	BOOL is_death = false;
+
+	//Skeleton()
+	//{
+
+	//}
 };
 
 struct Bullet
@@ -115,10 +119,10 @@ struct Object
 // Player - struct, vector 선언
 Player s_player;
 Player* p_player = new Player();
-vector<Player> v_player;
+std::vector<Player> v_player;
 
 // Vector iterator 선언
-vector<Player>::iterator iter = v_player.begin();
+std::vector<Player>::iterator iter = v_player.begin();
 
 // struct 객체 선언
 HDC hdc;
@@ -310,10 +314,7 @@ void is_crash()
 			p_skel->is_death = true;
 
 			// memory clear
-			skel.x = 0;
-			skel.y = 0;
-			skel.width = 0;
-			skel.height = 0;
+			//delete p_skel;
 		}
 		else 
 		{
@@ -327,6 +328,8 @@ void is_crash()
 	if (p_player->lifes == 0)
 	{
 		p_player->is_death = true;
+		delete p_player;
+
 		MessageBox(hWnd, Game_over, L"게임종료", MB_OK);
 		InvalidateRect(hWnd, NULL, false);
 		exit(1);
