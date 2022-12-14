@@ -1,9 +1,6 @@
 ﻿// Bitmap_.cpp : 애플리케이션에 대한 진입점을 정의합니다.
 //
-
-// 
 #pragma comment(lib, "msimg32.lib")
-
 
 #include <math.h>
 #include <vector>
@@ -14,6 +11,7 @@
 #include <algorithm>
 
 #define MAX_LOADSTRING 100
+void is_crash();
 
 // 전역 변수:
 HINSTANCE hInst;                                // 현재 인스턴스입니다.
@@ -90,11 +88,6 @@ struct Skeleton
 	int hp = 100;
 	int damage = 20;
 	BOOL is_death = false;
-
-	//Skeleton()
-	//{
-
-	//}
 };
 
 struct Bullet
@@ -122,7 +115,6 @@ Player* p_player = new Player();
 std::vector<Player> v_player;
 
 // Vector iterator 선언
-std::vector<Player>::iterator iter = v_player.begin();
 
 // struct 객체 선언
 HDC hdc;
@@ -151,11 +143,18 @@ DWORD WINAPI D_Player_bullet(LPVOID param)
 	hdc = GetDC(hWnd);
 	while (true)
 	{
+		/**
+		* 충돌 여부를 체크한 다음에 
+		*/
+
 		// Thread 잠시멈춤
 		Sleep(100);
 
-		// 오른쪽 충돌 구현
-		if ((int)bullet->x + 20 > ground.width)
+		// 충돌 여부 체크
+		is_crash(); 
+
+		// 그라운드 오른쪽 충돌 구현 - 왼쪽 위쪽 아래쪽 구현 해야댐.
+		if (static_cast<int>(bullet->x) + 20 > ground.width)
 		{
 			int ad = 0;
 			ground_is_crash = true;
@@ -163,21 +162,21 @@ DWORD WINAPI D_Player_bullet(LPVOID param)
 			bullet->y = s_player.y - s_player.height / 2;
 		}
 
-		float degree = sqrt(pow(dx, 2) + pow(dy, 2)); // 빗변길이
+		// 마우스 포인터 방향으로 날아가기 위한 빗변길이 계산
+		float degree = sqrt(pow(dx, 2) + pow(dy, 2)); 
 
-		// 이동 - 미 완성 (속도와 방향 구해야 한다.)
+		// 이동 - 속
 		bullet->x += 10.f * (dx / degree);
 		bullet->y += 10.f * (dy / degree);
 
 		// bullet이 mouse_x 까지 가면, skeleton에 충돌 하면 Thread 종료
-		// 사정거리 => bullet->x - 57
 		if (bullet->is_crash == true || ground_is_crash == true)
 		{
 			// Thread end
-			SuspendThread(bullet_handle);
+			ExitThread(thread_id_Player_bullet);
 		}
 
-		// 충돌 판정 
+		// Skeleton Crash Judgment
 		if (bullet->y > 270)
 		{
 			// 왼쪽 충돌 판정 - Complete
@@ -297,6 +296,40 @@ void is_crash()
 		}
 	}
 
+	// Player와 Skeleton에 충돌 여부 check - 앞쪽
+	if (s_player.x - s_player.width / 2 + 20 > skel.x - skel.width / 2)
+	{
+		// Player와 Skeleton이 부딪혔다.
+		is_hp_decrease = true;
+		if (s_player.x - s_player.width / 2 > skel.x - skel.width / 2 + 70)
+		{
+			// Player가 Skeleton을 지나쳤다.
+			is_no_crash = true;
+		}
+		else
+		{
+			// 아니면 부딪힌 것 이다.
+			is_no_crash = false;
+		}
+	}
+
+	// Player와 Skeleton에 충돌 여부 check - 뒤쪽
+	if (s_player.x - s_player.width / 2 < skel.x - skel.width / 2 + 65)
+	{
+		// Player와 Skeleton이 부딪혔다.
+		is_hp_decrease = true;
+		if (s_player.x - s_player.width / 2 < skel.x - skel.width / 2 - 28)
+		{
+			// Player가 Skeleton을 지나쳤다.
+			is_no_crash = true;
+		}
+		else
+		{
+			// 아니면 부딪힌 것 이다.
+			is_no_crash = false;
+		}
+	}
+
 	// Portal - 특정 조건을 충족하면 장소 이동하도록
 	if (portal.y < s_player.y + s_player.height / 2)
 	{
@@ -335,6 +368,7 @@ void is_crash()
 		exit(1);
 	}
 
+
 	if (is_hp_decrease == true && is_no_crash == false)
 	{
 		if (p_player->hp <= 0)
@@ -346,9 +380,6 @@ void is_crash()
 			s_player.y = 336;
 			s_player.width = 30;
 			s_player.height = 30;
-
-			// 위치좌표 벡터에 넣어주기
-			v_player.push_back(s_player);
 
 			// 플레이어의 HP 재 지정
 			p_player->hp = 100 + 3;
@@ -588,42 +619,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			player_move(wParam);
 		}
 
-		// Player와 Skeleton에 충돌 여부 check - 앞쪽
-		if (s_player.x - s_player.width / 2 + 20 > skel.x - skel.width / 2)
-		{
-			// Player와 Skeleton이 부딪혔다.
-			is_hp_decrease = true;
-			if (s_player.x - s_player.width / 2 > skel.x - skel.width / 2 + 70)
-			{
-				// Player가 Skeleton을 지나쳤다.
-				is_no_crash = true;
-			}
-			else
-			{
-				// 아니면 부딪힌 것 이다.
-				is_no_crash = false;
-			}
-		}
-
-		// Player와 Skeleton에 충돌 여부 check - 뒤쪽
-		if (s_player.x - s_player.width / 2 < skel.x - skel.width / 2 + 65)
-		{
-			// Player와 Skeleton이 부딪혔다.
-			is_hp_decrease = true;
-			if (s_player.x - s_player.width / 2 < skel.x - skel.width / 2 - 28)
-			{
-				// Player가 Skeleton을 지나쳤다.
-				is_no_crash = true;
-			}
-			else
-			{
-				// 아니면 부딪힌 것 이다.
-				is_no_crash = false;
-			}
-		}
-
 		Player_Area_Limit(); // 플레이어 영역 제한
-		is_crash(); // 충돌 여부 체크
 
 		InvalidateRect(hWnd, NULL, FALSE);
 	}
@@ -645,8 +641,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		WCHAR ball[128];
 		WCHAR buf[128];
 
-		wsprintf(speed, L"player speed = %d", s_player.plus_speed);
-		wsprintf(player_hp, L"player_hp = %d", p_player->hp);
 		wsprintf(buf, L"bullet->x = %d", (int)bullet->x);
 
 		/******** Bitmap ********/
