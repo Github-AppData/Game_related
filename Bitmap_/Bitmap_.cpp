@@ -12,6 +12,8 @@
 
 #define MAX_LOADSTRING 100
 void is_crash();
+void is_bullet_crash_judement();
+
 
 // 전역 변수:
 HINSTANCE hInst;                                // 현재 인스턴스입니다.
@@ -72,7 +74,7 @@ struct Player
 	int lifes = 3; // 라이프 수를 의미한다.
 	int hp = 100;
 	int plus_speed = 0;
-	BOOL is_death = false; // 완전히 죽는 것
+	BOOL is_death; // 완전히 죽는 것
 };
 
 // 1. 공격 비트맵 (작은 원) / 2. 공격이 나갈 수 있는 Thread / 3. Thread - Sleep (연사 방지)
@@ -145,9 +147,7 @@ DWORD WINAPI D_Player_bullet(LPVOID param)
 	hdc = GetDC(hWnd);
 	while (true)
 	{
-		/**
-		* 충돌 기능 모두 여기서 - check, hp decrease...
-		*/
+		// 충돌 기능 모두 여기서 - check, hp decrease...
 
 		// 총알 기능 : 총알이 한 개이기 때문에, 연사로 했을 경우 총알을 쏘는 도중에 발사가 되면 안된다
 		//			   마우스 포인터까지 총알이 간다.
@@ -169,39 +169,13 @@ DWORD WINAPI D_Player_bullet(LPVOID param)
 
 			// Thread를 죽이고
 			ExitThread(thread_id_Player_bullet);
-
-			// bullet 총알을 제 자리로
-			/*bullet->x = s_player.x - s_player.width / 2;
-			bullet->y = s_player.y - s_player.height / 2;*/
 		}
 
 		// Thread 잠시멈춤
 		Sleep(100);
-		is_crash();
 
-		// 마우스 포인터를 
-
-		// 충돌 판정 
-		if (bullet->y > 270)
-		{
-			// 왼쪽 충돌 판정 - Complete
-			// 1. Player가 Skeleton의 왼쪽에 있으면서, 2. bullet의 x가 skeleton의 x보다 클 경우 조건을 충족한다.
-			if (s_player.x - s_player.width / 2 < skel.x - skel.width / 2 && bullet->x > skel.x - skel.width / 2)
-			{
-				// 조건 충족
-				bullet->is_crash = true;
-				is_hp_skel_decrease = true;
-			}
-
-			// 오른쪽 충돌 판정 - Complete
-			// 1. Player가 Skeleton의 오른쪽에 있으면서, 2. bullet의 x가 skeleton의 x보다 작을 경우 조건을 충족한다.
-			if (s_player.x - s_player.width / 2 > skel.x - skel.width / 2 && bullet->x < skel.x - skel.width / 2 + 60)
-			{
-				// 조건 충족
-				bullet->is_crash = true;
-				is_hp_skel_decrease = true;
-			}
-		}
+		
+		is_bullet_crash_judement();
 
 		// 화면 무효화
 		InvalidateRect(hWnd, NULL, false);
@@ -242,6 +216,7 @@ void player_move(WPARAM wParam)
 {
 	switch (wParam)
 	{
+	
 		// 플레이어 이동시 총알의 좌표도 같이 이동할 수 있도록
 	case 'A':
 		if (is_thread == true)
@@ -279,52 +254,100 @@ void player_move(WPARAM wParam)
 	}
 }
 
-void is_crash()
+void is_bullet_crash_judement()
 {
-	//  Speed_item
-	if (speed_item.x + 7 < s_player.x + s_player.width / 2)
+	// 충돌 판정 
+	if (bullet->y > 270)
 	{
-		//MessageBox(hWnd, L"speed up !", L"Up", MB_OK);
-		if (speed_plus == 0)
+		// 왼쪽 충돌 판정 - Complete
+		// 1. Player가 Skeleton의 왼쪽에 있으면서
+		// 2. bullet의 x가 skeleton의 x보다 클 경우 조건을 충족한다.
+		if (s_player.x - s_player.width / 2 < skel.x - skel.width / 2 && bullet->x > skel.x - skel.width / 2)
 		{
-			s_player.plus_speed += 5;
-			speed_plus++;
+			int ad;
+			// 조건 충족
+			is_hp_skel_decrease = true;
 		}
 
-		// size 만 줄이고, 메모리 해제는 안 된 상태
-		v_player.clear();
-
-		// 메모리의 여부 상관없이, vector의 사이즈가 0인지 아닌지를 판단해서 BOOL 반환
-		if (v_player.empty() == true)
+		// 오른쪽 충돌 판정 - Complete
+		// 1. Player가 Skeleton의 오른쪽에 있으면서, 2. bullet의 x가 skeleton의 x보다 작을 경우 조건을 충족한다.
+		if (s_player.x - s_player.width / 2 > skel.x - skel.width / 2 && bullet->x < skel.x - skel.width / 2 + 60)
 		{
-			is_item_die = true;
+			// 조건 충족
+			is_hp_skel_decrease = true;
 		}
 	}
+	// is_no_skel_crash == false - 부딪히것 임
+	//
 
-	// Portal - 특정 조건을 충족하면 장소 이동하도록
-	if (portal.y < s_player.y + s_player.height / 2)
+	// bullet is_no_skel_crash check
+	if (bullet->x > skel.x - skel.width / 2 + 70)
 	{
-		if (portal.x + 10 < s_player.x + s_player.width / 2)
-		{
-			g_press = false;
-			g_portal_crash = true;
-		}
+		int adddd;
+		is_no_skel_crash = true;
+	}
+	else
+	{
+		is_no_skel_crash = false;
 	}
 
 	if (is_hp_skel_decrease == true && is_no_skel_crash == false)
 	{
+		int ad;
 		if (p_skel->hp <= 0)
 		{
 			p_skel->is_death = true;
 
-			// memory clear
-			//delete p_skel;
+			// memory clear 
+			skel.x = 0;
+			skel.y = 0;
 		}
 		else
 		{
-			p_skel->hp -= 20;
+			p_skel->hp -= 2;
 			is_hp_skel_decrease = false;
-			is_no_skel_crash = true;
+		}
+	}
+
+	
+	InvalidateRect(hWnd, NULL, false);
+
+}
+
+void is_object_crash()
+{
+	// Player와 Skeleton에 충돌 여부 check - 앞쪽
+	if (s_player.x - s_player.width / 2 + 20 > skel.x - skel.width / 2)
+	{
+		// Player와 Skeleton이 부딪혔다.
+		is_hp_decrease = true;
+		if (s_player.x - s_player.width / 2 > skel.x - skel.width / 2 + 70)
+		{
+			// Player가 Skeleton을 지나쳤다.
+			is_no_crash = true;
+		}
+		else
+		{
+			int asd;
+			// 아니면 부딪힌 것 이다.
+			is_no_crash = false; 
+		}
+	}
+
+	// Player와 Skeleton에 충돌 여부 check - 뒤쪽
+	if (s_player.x - s_player.width / 2 < skel.x - skel.width / 2 + 65)
+	{
+		// Player와 Skeleton이 부딪혔다.
+		is_hp_decrease = true;
+		if (s_player.x - s_player.width / 2 < skel.x - skel.width / 2 - 28)
+		{
+			// Player가 Skeleton을 지나쳤다.
+			is_no_crash = true;
+		}
+		else
+		{
+			// 아니면 부딪힌 것 이다.
+			is_no_crash = false;
 		}
 	}
 
@@ -364,6 +387,36 @@ void is_crash()
 		}
 		p_player->hp -= 3;
 	}
+	//  Speed_item
+	if (speed_item.x + 7 < s_player.x + s_player.width / 2)
+	{
+		//MessageBox(hWnd, L"speed up !", L"Up", MB_OK);
+		if (speed_plus == 0)
+		{
+			s_player.plus_speed += 5;
+			speed_plus++;
+		}
+
+		// size 만 줄이고, 메모리 해제는 안 된 상태
+		v_player.clear();
+
+		// 메모리의 여부 상관없이, vector의 사이즈가 0인지 아닌지를 판단해서 BOOL 반환
+		if (v_player.empty() == true)
+		{
+			is_item_die = true;
+		}
+	}
+
+	// Portal - 특정 조건을 충족하면 장소 이동하도록
+	if (portal.y < s_player.y + s_player.height / 2)
+	{
+		if (portal.x + 10 < s_player.x + s_player.width / 2)
+		{
+			g_press = false;
+			g_portal_crash = true;
+		}
+	}
+
 	InvalidateRect(hWnd, NULL, false);
 }
 
@@ -591,40 +644,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		{
 			player_move(wParam);
 		}
-
-		// Player와 Skeleton에 충돌 여부 check - 앞쪽
-		if (s_player.x - s_player.width / 2 + 20 > skel.x - skel.width / 2)
-		{
-			// Player와 Skeleton이 부딪혔다.
-			is_hp_decrease = true;
-			if (s_player.x - s_player.width / 2 > skel.x - skel.width / 2 + 70)
-			{
-				// Player가 Skeleton을 지나쳤다.
-				is_no_crash = true;
-			}
-			else
-			{
-				// 아니면 부딪힌 것 이다.
-				is_no_crash = false;
-			}
-		}
-
-		// Player와 Skeleton에 충돌 여부 check - 뒤쪽
-		if (s_player.x - s_player.width / 2 < skel.x - skel.width / 2 + 65)
-		{
-			// Player와 Skeleton이 부딪혔다.
-			is_hp_decrease = true;
-			if (s_player.x - s_player.width / 2 < skel.x - skel.width / 2 - 28)
-			{
-				// Player가 Skeleton을 지나쳤다.
-				is_no_crash = true;
-			}
-			else
-			{
-				// 아니면 부딪힌 것 이다.
-				is_no_crash = false;
-			}
-		}
+		is_object_crash();
+		
 		Player_Area_Limit(); // 플레이어 영역 제한
 
 		InvalidateRect(hWnd, NULL, FALSE);
@@ -647,9 +668,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		WCHAR ball[128];
 		WCHAR buf[128];
 
-		wsprintf(speed, L"player speed = %d", s_player.plus_speed);
-		wsprintf(player_hp, L"player_hp = %d", p_player->hp);
-		wsprintf(buf, L"bullet->x = %d", (int)bullet->x);
 
 		/******** Bitmap ********/
 
@@ -748,7 +766,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			TransparentBlt(hdc, 0, 0, 700, 400, bitmap_dc5, 0, 0, width, height, RGB(255, 255, 255));
 
 			// Skeleton Bitmap
-			if (p_skel->is_death == false)
+			if (p_skel->is_death != true)
 			{
 				TransparentBlt(hdc, skel.x - skel.width / 2, skel.y - skel.height / 2 + 19, skel_width + 18, skel_height + 15, bitmap_dc8, 0, 0, skel_width, skel_height, RGB(255, 0, 255));
 			}
