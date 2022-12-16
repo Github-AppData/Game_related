@@ -31,6 +31,9 @@ BOOL g_portal_crash = false; // 포탈 충돌 여부 확인
 BOOL g_Key_D = false; // 
 BOOL is_no_crash = false;
 BOOL is_no_skel_crash = false;
+BOOL is_complete = false;
+
+int stage_count = 1;
 
 HANDLE handle; // Thread 핸들
 BOOL is_item_die = false; // 아이템을 먹었는지 확인 유무
@@ -54,9 +57,9 @@ HANDLE thread;
 DWORD tid;
 
 // 비트맵
-HBITMAP bitmap, bitmap1, bitmap2, bitmap3, bitmap4, bitmap5, bitmap6, bitmap7, bitmap8, bitmap9, bitmap10; // 로드한 비트맵을 저장하는 변수
-BITMAP bitmap_info, bitmap_info2, Speed_item_info, skeleton_info, bullet_info; // 로드한 비트맵의 정보를 저장하는 변수
-HDC bitmap_dc, bitmap_dc1, bitmap_dc2, bitmap_dc3, bitmap_dc4, bitmap_dc5, bitmap_dc6, bitmap_dc7, bitmap_dc8, bitmap_dc9, bitmap_dc10; // 비트맵을 메모리 DC에 저장하는 변수
+HBITMAP bitmap, bitmap1, bitmap2, bitmap3, bitmap4, bitmap5, bitmap6, bitmap7, bitmap8, bitmap9, bitmap10, bitmap11, bitmap12, bitmap13; // 로드한 비트맵을 저장하는 변수
+BITMAP bitmap_info, bitmap_info2, Speed_item_info, skeleton_info, bullet_info, stage2_info; // 로드한 비트맵의 정보를 저장하는 변수
+HDC bitmap_dc, bitmap_dc1, bitmap_dc2, bitmap_dc3, bitmap_dc4, bitmap_dc5, bitmap_dc6, bitmap_dc7, bitmap_dc8, bitmap_dc9, bitmap_dc10, bitmap_dc11, bitmap_dc12, bitmap_dc13; // 비트맵을 메모리 DC에 저장하는 변수
 
 /* ------- Struct ------- */
 struct skeleton_area_limit
@@ -173,7 +176,6 @@ DWORD WINAPI D_Player_bullet(LPVOID param)
 
 		// Thread 잠시멈춤
 		Sleep(100);
-
 		
 		is_bullet_crash_judement();
 
@@ -219,36 +221,20 @@ void player_move(WPARAM wParam)
 	
 		// 플레이어 이동시 총알의 좌표도 같이 이동할 수 있도록
 	case 'A':
-		if (is_thread == true)
-		{
-			break;
-		}
 		s_player.x -= 5;
 		s_player.x -= s_player.plus_speed;
 		break;
 	case 'D':
-		if (is_thread == true)
-		{
-			break;
-		}
 		s_player.x += 5;
 		s_player.x += s_player.plus_speed;
 		break;
 	case 'W':
-		if (is_thread == true)
-		{
-			break;
-		}
 		// 점프 기회 다 쓰면, 더 이상 점프를 하지 못하도록 하는 조건 문이다.
 		if (g_jump_limit >= 2) { break; }
 		g_jump_limit++;
 		s_player.y -= 20;
 		break;
 	case 'S':
-		if (is_thread == true)
-		{
-			break;
-		}
 		s_player.y += 10;
 		break;
 	}
@@ -308,10 +294,7 @@ void is_bullet_crash_judement()
 			is_hp_skel_decrease = false;
 		}
 	}
-
-	
 	InvalidateRect(hWnd, NULL, false);
-
 }
 
 void is_object_crash()
@@ -408,15 +391,23 @@ void is_object_crash()
 	}
 
 	// Portal - 특정 조건을 충족하면 장소 이동하도록
-	if (portal.y < s_player.y + s_player.height / 2)
+	if (portal.x + 10 < s_player.x + s_player.width / 2 && is_complete == true)
 	{
-		if (portal.x + 10 < s_player.x + s_player.width / 2)
-		{
-			g_press = false;
-			g_portal_crash = true;
-		}
+		g_press = false;
+		g_portal_crash = true;
+		stage_count++;
+		p_skel->is_death = false;
+			
+		p_skel->is_death = false;
+		p_skel->hp = 100;
+		skel.x = 500;
+		skel.y = 269;
+		skel.width = 30;
+		skel.height = 30;
+		skel.damage = 10;
+		s_player.x = (s_player.x - s_player.width / 2) - 500;
 	}
-
+	
 	InvalidateRect(hWnd, NULL, false);
 }
 
@@ -640,13 +631,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		}
 
 		// 스테이지에 돌아가야 이동 가능
-		if (g_press == true)
+		if (g_press == true || stage_count == 2)
 		{
 			player_move(wParam);
+			is_object_crash();
+			Player_Area_Limit(); // 플레이어 영역 제한
 		}
-		is_object_crash();
 		
-		Player_Area_Limit(); // 플레이어 영역 제한
 
 		InvalidateRect(hWnd, NULL, FALSE);
 	}
@@ -721,16 +712,40 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		HBITMAP old_bitmap_9 = (HBITMAP)SelectObject(bitmap_dc9, bitmap9);
 		DeleteObject(old_bitmap_9);
 
+		// stage2-1.bmp - 10
+		bitmap10 = (HBITMAP)LoadImage(NULL, L"stage2-1.bmp", IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE | LR_CREATEDIBSECTION);
+		bitmap_dc10 = CreateCompatibleDC(hdc);
+		HBITMAP old_bitmap_10 = (HBITMAP)SelectObject(bitmap_dc10, bitmap10);
+		DeleteObject(old_bitmap_10);
+
+		// stage2-2.bmp - 11
+		bitmap11 = (HBITMAP)LoadImage(NULL, L"stage2-2.bmp", IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE | LR_CREATEDIBSECTION);
+		bitmap_dc11 = CreateCompatibleDC(hdc);
+		HBITMAP old_bitmap_11 = (HBITMAP)SelectObject(bitmap_dc11, bitmap11);
+		DeleteObject(old_bitmap_11);
+
+		// stage2-3.bmp - 12
+		bitmap12 = (HBITMAP)LoadImage(NULL, L"stage2-3.bmp", IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE | LR_CREATEDIBSECTION);
+		bitmap_dc12 = CreateCompatibleDC(hdc);
+		HBITMAP old_bitmap_12 = (HBITMAP)SelectObject(bitmap_dc12, bitmap12);
+		DeleteObject(old_bitmap_12);
+
+
 		// 비트맵에 대한 정보를 담는다.
 		GetObject(bitmap1, sizeof(BITMAP), &bitmap_info); // Background
 		GetObject(bitmap6, sizeof(BITMAP), &bitmap_info2); // Player
 		GetObject(bitmap7, sizeof(BITMAP), &Speed_item_info); // Speed_item
 		GetObject(bitmap8, sizeof(BITMAP), &skeleton_info); // Skeleton
 		GetObject(bitmap9, sizeof(BITMAP), &bullet_info); // Attack
+		GetObject(bitmap10, sizeof(BITMAP), &stage2_info); // stage2
+
 
 		// Background 비트맵의 가로,세로 사이즈
 		LONG width = bitmap_info.bmWidth;
 		LONG height = bitmap_info.bmHeight;
+
+		LONG stage2_width = stage2_info.bmWidth;
+		LONG stage2_height = stage2_info.bmHeight;
 
 		// Player 비트맵의 가로, 세로 사이즈
 		LONG player_width = bitmap_info2.bmWidth;
@@ -748,8 +763,119 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		LONG bullet_width = bullet_info.bmWidth;
 		LONG bullet_height = bullet_info.bmHeight;
 
-		if (g_press == true)
+		// stage 2
+		if (stage_count == 2)
 		{
+			WCHAR clear[128];
+			// stage1 bitmap delete
+			DeleteDC(bitmap_dc1);
+			DeleteObject(bitmap1);
+			DeleteDC(bitmap_dc2);
+			DeleteObject(bitmap2);
+			DeleteDC(bitmap_dc3);
+			DeleteObject(bitmap3);
+			DeleteDC(bitmap_dc4);
+			DeleteObject(bitmap4);
+			DeleteDC(bitmap_dc5);
+			DeleteObject(bitmap5);
+			WCHAR buf3[128];
+
+			wsprintf(buf3, L"stage2 !");
+			wsprintf(clear, L"Game Clear !");
+
+			TextOut(hdc, 300, 220, buf3, wcslen(buf3));
+
+			// 바닥의 y 좌표보다 player의 y 좌표가 더 높을 때 Thread 실행
+			if (floors.y > s_player.y + s_player.height / 2)
+			{
+				CreateThread(NULL, 0, gravity, hWnd, 0, NULL);
+			}
+
+			// 두 번째 스테이지의 Transferbit를 넣으면 된다
+			// 플레이어 Skeleton의 Transferbit도
+
+			TransparentBlt(hdc, 0, 0, 700, 400, bitmap_dc10, 0, 0, stage2_width, stage2_height, RGB(255, 255, 255));
+			TransparentBlt(hdc, 0, 0, 700, 400, bitmap_dc11, 0, 0, stage2_width, stage2_height, RGB(255, 255, 255));
+			TransparentBlt(hdc, 0, 0, 700, 400, bitmap_dc12, 0, 0, stage2_width, stage2_height, RGB(255, 255, 255));
+
+			// Skeleton Bitmap
+			if (p_skel->is_death == false)
+			{
+				TransparentBlt(hdc, skel.x - skel.width / 2, skel.y - skel.height / 2 + 19, skel_width + 18, skel_height + 15, bitmap_dc8, 0, 0, skel_width, skel_height, RGB(255, 0, 255));
+			}
+
+			// Player Bitmap
+			if (p_player->is_death == false)
+			{
+				TransparentBlt(hdc, s_player.x - s_player.width / 2 - 22, s_player.y - s_player.height / 2 - 32, player_width + 30, player_height + 25, bitmap_dc6, 0, 0, player_width, player_height, RGB(255, 0, 255));
+			}
+
+			// 아이템이 Player와 충돌 할 경우 그리지 않는다.
+			if (is_item_die == false)
+			{
+				// Speed_item Bitmap
+				TransparentBlt(hdc, speed_item.x, speed_item.y, Speed_item_width + 30, Speed_item_height + 30, bitmap_dc7, 0, 0, Speed_item_width, Speed_item_height, RGB(255, 0, 255));
+				InvalidateRect(hWnd, NULL, false);
+			}
+
+			// Floors
+			Rectangle(hdc, floors.x, floors.y, floors.width, floors.y + floors.height);
+
+			// Fix Hp_Bar config - Player
+			if (p_player->is_death == false)
+			{
+				Rectangle(hdc, s_player.x - 45, s_player.y + 18, s_player.x + 45, s_player.y + 23); // Player - hp_bar
+			}
+
+			// Fix Hp_Bar config - Skeleton
+			if (p_skel->is_death == false)
+			{
+				Rectangle(hdc, skel.x - 20, skel.y + 85, skel.x + 80, skel.y + 90); // Skeleton - hp_bar
+			}
+
+			// portal
+			Rectangle(hdc, portal.x, portal.y, portal.x + portal.width, portal.y + portal.height);
+
+			// Flow Hp_Bar config - skeletom, Player
+			my_b = CreateSolidBrush(RGB(255, 0, 0));
+			os_b = (HBRUSH)SelectObject(hdc, my_b);
+			DeleteObject(os_b);
+
+			// skeleton, Player HP Bar
+			if (p_skel->is_death == false)
+			{
+				Rectangle(hdc, skel.x - 20, skel.y + 85, (skel.x - 20) + p_skel->hp, skel.y + 90); // Skeleton - hp_bar
+			}
+			if (p_player->is_death == false)
+			{
+				Rectangle(hdc, s_player.x - 45, s_player.y + 18, (s_player.x - 45) + p_player->hp, s_player.y + 23); // Player - hp_bar
+			}
+
+			DeleteObject(my_b);
+
+			Player_bullet(hdc);
+		}
+
+		if (stage_count == 1)
+		{
+			wsprintf(buf, L"Space bar Press !");
+			TextOut(hdc, 270, 100, buf, wcslen(buf));
+		}
+
+		// stage 1
+		if (g_press == true && stage_count == 1)
+		{
+			if (p_skel->is_death == false)
+			{
+				// 스켈레톤이 죽지 않으면 클리어 되지 않는다.
+				is_complete = false;
+			}
+			else
+			{
+				// 아니면 클리어
+				is_complete = true;
+			}
+
 			// 바닥의 y 좌표보다 player의 y 좌표가 더 높을 때 Thread 실행
 			if (floors.y > s_player.y + s_player.height / 2)
 			{
@@ -817,29 +943,15 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			{
 				Rectangle(hdc, s_player.x - 45, s_player.y + 18, (s_player.x - 45) + p_player->hp, s_player.y + 23); // Player - hp_bar
 			}
+
 			DeleteObject(my_b);
 
 			Player_bullet(hdc);
-
-
-			//TextOut(hdc, 10, 10, speed, wcslen(speed));
-			//TextOut(hdc, skel.x - skel.width / 2, 330, L"  ", lstrlen(L"  "));
-			//TextOut(hdc, s_player.x - s_player.width / 2 + 30, 330, L"  ", lstrlen(L"  "));
 		}
 
 		BitBlt(memDC, 0, 0, resolution.x, resolution.y, hdc, 0, 0, SRCCOPY);
 
 		// 비트맵 메모리 해제
-		DeleteDC(bitmap_dc1);
-		DeleteObject(bitmap1);
-		DeleteDC(bitmap_dc2);
-		DeleteObject(bitmap2);
-		DeleteDC(bitmap_dc3);
-		DeleteObject(bitmap3);
-		DeleteDC(bitmap_dc4);
-		DeleteObject(bitmap4);
-		DeleteDC(bitmap_dc5);
-		DeleteObject(bitmap5);
 		DeleteDC(bitmap_dc6);
 		DeleteObject(bitmap6);
 		DeleteDC(bitmap_dc7);
@@ -848,6 +960,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		DeleteObject(bitmap8);
 		DeleteDC(bitmap_dc9);
 		DeleteObject(bitmap9);
+		DeleteDC(bitmap_dc10);
+		DeleteObject(bitmap10);
+		DeleteDC(bitmap_dc11);
+		DeleteObject(bitmap11);
+		DeleteDC(bitmap_dc12);
+		DeleteObject(bitmap12);
 
 		DeleteDC(hdc);
 		DeleteDC(memDC);

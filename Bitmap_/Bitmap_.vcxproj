@@ -167,6 +167,9 @@
     <Image Include="fox_pet.bmp" />
     <Image Include="Skeleton1.bmp" />
     <Image Include="small.ico" />
+    <Image Include="stage2-1.bmp" />
+    <Image Include="stage2-2.bmp" />
+    <Image Include="stage2-3.bmp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
