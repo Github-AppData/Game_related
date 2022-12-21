@@ -58,7 +58,7 @@ DWORD tid;
 
 // 비트맵
 HBITMAP bitmap, bitmap1, bitmap2, bitmap3, bitmap4, bitmap5, bitmap6, bitmap7, bitmap8, bitmap9, bitmap10, bitmap11, bitmap12, bitmap13; // 로드한 비트맵을 저장하는 변수
-BITMAP bitmap_info, bitmap_info2, Speed_item_info, skeleton_info, bullet_info, stage2_info; // 로드한 비트맵의 정보를 저장하는 변수
+BITMAP bitmap_info, bitmap_info2, Speed_item_info, skeleton_info, bullet_info, stage2_info, iceCream_info; // 로드한 비트맵의 정보를 저장하는 변수
 HDC bitmap_dc, bitmap_dc1, bitmap_dc2, bitmap_dc3, bitmap_dc4, bitmap_dc5, bitmap_dc6, bitmap_dc7, bitmap_dc8, bitmap_dc9, bitmap_dc10, bitmap_dc11, bitmap_dc12, bitmap_dc13; // 비트맵을 메모리 DC에 저장하는 변수
 
 /* ------- Struct ------- */
@@ -730,6 +730,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		HBITMAP old_bitmap_12 = (HBITMAP)SelectObject(bitmap_dc12, bitmap12);
 		DeleteObject(old_bitmap_12);
 
+		// bitmap21.bmp - 13
+		bitmap13 = (HBITMAP)LoadImage(NULL, L"bitmap21.bmp", IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE | LR_CREATEDIBSECTION);
+		bitmap_dc13 = CreateCompatibleDC(hdc);
+		HBITMAP old_bitmap_13 = (HBITMAP)SelectObject(bitmap_dc13, bitmap13);
+		DeleteObject(old_bitmap_13);
+
 
 		// 비트맵에 대한 정보를 담는다.
 		GetObject(bitmap1, sizeof(BITMAP), &bitmap_info); // Background
@@ -738,6 +744,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		GetObject(bitmap8, sizeof(BITMAP), &skeleton_info); // Skeleton
 		GetObject(bitmap9, sizeof(BITMAP), &bullet_info); // Attack
 		GetObject(bitmap10, sizeof(BITMAP), &stage2_info); // stage2
+		GetObject(bitmap13, sizeof(BITMAP), &iceCream_info); // stage2
+
 
 
 		// Background 비트맵의 가로,세로 사이즈
@@ -762,6 +770,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		// attack 비트맵의 가로, 세로 사이즈
 		LONG bullet_width = bullet_info.bmWidth;
 		LONG bullet_height = bullet_info.bmHeight;
+
+		// iceCream 비트맵의 가로, 세로 사이즈
+		LONG ice_width = iceCream_info.bmWidth;
+		LONG ice_height = iceCream_info.bmHeight;
 
 		// stage 2
 		if (stage_count == 2)
@@ -910,6 +922,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				TransparentBlt(hdc, speed_item.x, speed_item.y, Speed_item_width + 30, Speed_item_height + 30, bitmap_dc7, 0, 0, Speed_item_width, Speed_item_height, RGB(255, 0, 255));
 				InvalidateRect(hWnd, NULL, false);
 			}
+
+			TransparentBlt(hdc, 500, 250, ice_width, ice_height, bitmap_dc13, 0, 0, ice_width, ice_height, RGB(255, 0, 255));
+
 
 			// Floors
 			Rectangle(hdc, floors.x, floors.y, floors.width, floors.y + floors.height);
